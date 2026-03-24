@@ -1,0 +1,112 @@
+/* ───────── FILTER CONTAINER ───────── */
+
+.filters-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+
+  width: 100%;
+  padding: 12px 16px;
+
+  background: #f8f9fb;
+  border-radius: 8px;
+
+  position: sticky;   /* ✅ KEY */
+  top: 70px;          /* ✅ adjust based on header height */
+  z-index: 1000;
+}
+
+/* ───────── TITLE (LEFT SIDE) ───────── */
+
+.filters-title {
+  flex: 0 0 auto; /* prevent full width */
+}
+
+.filters-title h3 {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 600;
+  color: #2c2c2c;
+}
+
+/* ───────── RIGHT SIDE (FILTERS WRAPPER) ───────── */
+
+.filters-right {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: nowrap; /* keep in one row */
+}
+
+/* ───────── FILTER GROUP ───────── */
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+/* ───────── LABEL ───────── */
+
+.filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #8a8f98;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ───────── INPUT / SELECT ───────── */
+
+.filter-select {
+  height: 38px;
+  padding: 6px 10px;
+
+  border: 1px solid #dcdfe4;
+  border-radius: 8px;
+  background: #fff;
+
+  font-size: 14px;
+  color: #2c2c2c;
+
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+/* Hover */
+.filter-select:hover {
+  border-color: #bfc5cc;
+}
+
+/* Focus */
+.filter-select:focus {
+  border-color: #6c63ff;
+  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+}
+
+/* ───────── ICON SPACING ───────── */
+
+.filter-label i {
+  font-size: 12px;
+  color: #9aa0a6;
+}
+
+/* ───────── RESPONSIVE ───────── */
+
+@media (max-width: 768px) {
+  .filters-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters-right {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+}

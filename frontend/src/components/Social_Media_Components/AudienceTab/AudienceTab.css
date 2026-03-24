@@ -1,0 +1,62 @@
+.audience-table {
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f9fafb;
+   border: 1px solid #e5e7eb;
+}
+
+.audience-header {
+  background: linear-gradient(90deg, #7b61ff, #6d5dfc);
+  color: white;
+  font-weight: 600;
+  padding: 10px;
+}
+
+.audience-row {
+  padding: 10px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.audience-row:nth-child(even) {
+  background: #F9F9F9;
+}
+
+.col-user {
+  flex: 2;
+}
+
+.col-reach {
+  flex: 1;
+  text-align: center;
+}
+
+.col-mentions {
+  flex: 1;
+  text-align: center;
+}
+
+.avatar-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #bdbdbd;
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-weight: 600;
+  font-size: 14px;
+
+  line-height: 1;          /* 🔥 important */
+  text-align: center;      /* 🔥 ensures horizontal centering */
+
+  flex-shrink: 0;          /* prevents shrinking in flex */
+}
+
+.username-text {
+  font-size: 13px;   /* 👈 reduce size */
+  font-weight: 500;  /* keeps medium weight */
+}

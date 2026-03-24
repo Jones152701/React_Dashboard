@@ -1,0 +1,33 @@
+.logout-modal-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.4);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:2000;
+}
+
+.logout-modal-card{
+  background:white;
+  padding:30px;
+  border-radius:10px;
+  width:320px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.2);
+}
+
+.header-logo {
+  height: 40px;
+  width: auto;
+}
+
+header {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 70px; /* ✅ DEFINE THIS */
+  display: flex;
+  align-items: center; /* vertically center logo/button */
+  z-index: 1100;
+}
+

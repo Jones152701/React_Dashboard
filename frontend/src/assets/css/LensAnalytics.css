@@ -1,0 +1,101 @@
+
+
+html,
+body {
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  overflow-x: hidden !important;
+  font-family: 'Sora';
+  /* font-weight: 100; */
+  background: #f3f4f6;
+  font-family: 'Sora';
+
+
+}
+
+
+
+@font-face { 
+    font-family: 'Sora';
+    src: url('../fonts/Sora-Medium.woff2') format('woff2'),
+         url('../fonts/Sora-Medium.woff') format('woff');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+
+.pagewrap {
+  margin-top: 70px;
+  margin-left: 60px; /* 👈 default sidebar width */
+  transition: margin-left 0.3s ease;
+}
+
+.chart-container{
+
+  position: relative;
+
+  /* space for fixed header + subheader */
+  padding-top: 5px;
+
+  /* internal spacing */
+
+  padding-right: 1.0rem;
+  padding-bottom: 20px;
+
+  background: #f3f4f6;
+
+  min-height: calc(100vh - 160px);
+
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+
+  overflow: visible;
+
+  z-index: 1;
+
+  transition: margin-left 0.3s ease;
+
+  display: flex;
+  flex-direction: column;
+  gap: 15px;   /* 👈 controls spacing */
+
+}
+
+
+
+/* sidebar expanded */
+.nb-nav.expanded ~ .page-content {
+  margin-left: 200px;
+}
+
+.modebar{
+  z-index: 10 !important;
+}
+
+
+
+/* tablet */
+@media (max-width: 1024px) {
+  .page-content {
+    padding-top: 150px;
+  }
+}
+
+@media (max-width: 768px) {
+  .pagewrap {
+    margin-left: 0;
+  }
+}
+/* mobile */
+@media (max-width: 768px) {
+  .page-content {
+    margin-left: 0;
+    padding-top: 160px;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+}
+
