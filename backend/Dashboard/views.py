@@ -5,6 +5,383 @@ import math
 import re
 from collections import Counter
 from datetime import datetime, timedelta
+from .chart_builder import build_chart
+
+
+
+
+class LensAnalyticsView(APIView):
+
+    # ================= MAIN API =================
+    def get(self, request):
+        
+        print("\n" + "="*80)
+        print("🚀 LENS ANALYTICS API CALLED")
+        print("="*80)
+
+        table = "lens_src.prod_lens_user_requests"
+
+        from_date = request.GET.get("from_date")
+        to_date = request.GET.get("to_date")
+        selected_user = request.GET.get("user")
+
+        print(f"\n📅 Request Parameters:")
+        print(f"   - From Date: {from_date}")
+        print(f"   - To Date: {to_date}")
+        print(f"   - Selected User: {selected_user if selected_user else 'None (All Users)'}")
+
+        # ================= DATE HANDLING =================
+        current_from = datetime.strptime(from_date, "%Y-%m-%d")
+        current_to = datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1)
+
+        diff_days = (current_to - current_from).days
+        prev_to = current_from
+        prev_from = prev_to - timedelta(days=diff_days)
+
+        current_from_str = current_from.strftime("%Y-%m-%d")
+        current_to_str = current_to.strftime("%Y-%m-%d")
+        prev_from_str = prev_from.strftime("%Y-%m-%d")
+        prev_to_str = prev_to.strftime("%Y-%m-%d")
+
+        print(f"\n📊 Date Ranges:")
+        print(f"   - Current: {current_from_str} to {current_to_str}")
+        print(f"   - Previous: {prev_from_str} to {prev_to_str}")
+
+        # ================= KPI QUERY =================
+        print("\n🔍 Executing KPI Query...")
+        kpi_query = f"""
+        SELECT
+            SUM(CASE WHEN created_date >= %s AND created_date < %s THEN 1 ELSE 0 END),
+            COUNT(DISTINCT CASE WHEN created_date >= %s AND created_date < %s THEN recipient_name END),
+            SUM(CASE WHEN created_date >= %s AND created_date < %s THEN 1 ELSE 0 END),
+            COUNT(DISTINCT CASE WHEN created_date >= %s AND created_date < %s THEN recipient_name END)
+        FROM {table}
+        WHERE recipient_name IS NOT NULL AND recipient_name != ''
+        """
+
+        params = [
+            current_from_str, current_to_str,
+            current_from_str, current_to_str,
+            prev_from_str, prev_to_str,
+            prev_from_str, prev_to_str
+        ]
+
+        with connection.cursor() as cursor:
+            cursor.execute(kpi_query, params)
+            row = cursor.fetchone()
+
+        current_total, current_users, prev_total, prev_users = row
+
+        current_total = current_total or 0
+        current_users = current_users or 0
+        prev_total = prev_total or 0
+        prev_users = prev_users or 0
+
+        print(f"\n📈 KPI Results:")
+        print(f"   - Current: {current_total} messages, {current_users} users")
+        print(f"   - Previous: {prev_total} messages, {prev_users} users")
+
+        current_avg = round(current_total / current_users, 2) if current_users else 0
+        prev_avg = round(prev_total / prev_users, 2) if prev_users else 0
+
+        # ================= TOP USERS (within date range) =================
+        print("\n🏆 Fetching Top Users...")
+        top_users_query = f"""
+            SELECT recipient_name AS name, COUNT(*) AS value
+            FROM {table}
+            WHERE recipient_name IS NOT NULL AND recipient_name != ''
+              AND created_date >= %s AND created_date < %s
+            GROUP BY recipient_name
+            ORDER BY value DESC
+            LIMIT 20
+        """
+        
+        # Use the end date + 1 day for proper range
+        to_date_plus_one = datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1)
+        to_date_plus_one_str = to_date_plus_one.strftime("%Y-%m-%d")
+
+        with connection.cursor() as cursor:
+            cursor.execute(top_users_query, [from_date, to_date_plus_one_str])
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+
+        top_users_data = [dict(zip(columns, row)) for row in rows]
+
+        top_user = top_users_data[0]["name"] if top_users_data else "-"
+        top_user_count = top_users_data[0]["value"] if top_users_data else 0
+        
+        print(f"   - Top User: {top_user} ({top_user_count} messages)")
+        print(f"   - Total in Top 20: {len(top_users_data)}")
+
+        # ================= DAILY TREND =================
+        print("\n📅 Fetching Daily Data...")
+        daily_query = f"""
+            SELECT DATE(created_date) AS date, COUNT(*) AS value
+            FROM {table}
+            WHERE created_date >= %s AND created_date < %s
+            GROUP BY DATE(created_date)
+            ORDER BY DATE(created_date)
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(daily_query, [from_date, to_date_plus_one_str])
+            columns = [col[0] for col in cursor.description]
+            rows = cursor.fetchall()
+
+        daily_data = [dict(zip(columns, row)) for row in rows]
+        print(f"   - Daily Data Points: {len(daily_data)}")
+
+        # ================= USERS LIST (only users active in date range) =================
+        print("\n👥 Fetching Users Active in Date Range...")
+        users_query = f"""
+            SELECT DISTINCT recipient_name
+            FROM {table}
+            WHERE recipient_name IS NOT NULL AND recipient_name != ''
+              AND created_date >= %s AND created_date < %s
+            ORDER BY recipient_name
+        """
+
+        with connection.cursor() as cursor:
+            cursor.execute(users_query, [from_date, to_date_plus_one_str])
+            users = [row[0] for row in cursor.fetchall()]
+        
+        print(f"   - Total Active Users: {len(users)}")
+        if users:
+            print(f"   - Sample Users: {users[:5]}")
+
+        # ================= USER DRILLDOWN =================
+        print("\n" + "="*80)
+        print("👤 USER DRILLDOWN SECTION")
+        print("="*80)
+        
+        user_chart = None
+        user_messages = []
+
+        print(f"\n🔍 Checking User Drilldown:")
+        print(f"   - Selected User: {selected_user if selected_user else 'None'}")
+        
+        if selected_user:
+            # Check if user exists in active users
+            user_exists = selected_user in users
+            print(f"   - User Active in Date Range: {user_exists}")
+            
+            if user_exists:
+                print(f"\n✅ User '{selected_user}' found. Fetching detailed data...")
+                
+                # -------- DAILY CHART --------
+                print(f"\n📊 Fetching daily activity for user: {selected_user}")
+                user_daily_query = f"""
+                    SELECT DATE(created_date) AS date, COUNT(*) AS value
+                    FROM {table}
+                    WHERE recipient_name = %s
+                      AND created_date >= %s AND created_date < %s
+                    GROUP BY DATE(created_date)
+                    ORDER BY DATE(created_date)
+                """
+
+                with connection.cursor() as cursor:
+                    cursor.execute(user_daily_query, [selected_user, from_date, to_date_plus_one_str])
+                    columns = [col[0] for col in cursor.description]
+                    rows = cursor.fetchall()
+                    print(f"   - Raw Query Results: {len(rows)} rows")
+
+                user_daily_data = [dict(zip(columns, row)) for row in rows]
+                print(f"   - Processed Data Points: {len(user_daily_data)}")
+                
+                if user_daily_data:
+                    # Ensure data has proper format
+                    formatted_data = []
+                    for item in user_daily_data:
+                        formatted_data.append({
+                            "date": str(item['date']) if item['date'] else "",
+                            "value": int(item['value']) if item['value'] else 0
+                        })
+                    
+                    print(f"   - Sample Formatted Data: {formatted_data[:3]}")
+                    
+                    # Calculate total
+                    total_messages = sum(item['value'] for item in formatted_data)
+                    print(f"   - Total Messages: {total_messages}")
+                    
+                    # Only create chart if there's data
+                    if formatted_data and total_messages > 0:
+                        # Use the imported build_chart function
+                        user_chart = build_chart(
+                            chart_id="user_daily",
+                            chart_type="bar",
+                            data=formatted_data,
+                            x_key="date",
+                            y_label="Messages",
+                            title=f"{selected_user}'s Activity",
+                            tooltip="Messages per day",
+                            icon="bi-person-lines-fill",
+                            layout="horizontal",
+                            color="#10B981",
+                            margin={"top": 25, "right": 0, "left": 18, "bottom": 30},
+                            x_label_offset=-15,
+                            y_label_offset=-10
+                        )
+                        print(f"   ✅ User chart created with {len(formatted_data)} data points")
+                    else:
+                        print(f"   ⚠️ No valid data for chart creation")
+                else:
+                    print(f"   ⚠️ No daily activity data found for user '{selected_user}'")
+
+                # -------- MESSAGES --------
+                print(f"\n💬 Fetching messages for user: {selected_user}")
+                user_messages_query = f"""
+                    SELECT message, created_date
+                    FROM {table}
+                    WHERE recipient_name = %s
+                      AND created_date >= %s AND created_date < %s
+                    ORDER BY created_date DESC
+                """
+
+                with connection.cursor() as cursor:
+                    cursor.execute(user_messages_query, [selected_user, from_date, to_date_plus_one_str])
+                    rows = cursor.fetchall()
+                    print(f"   - Messages Found: {len(rows)}")
+
+                user_messages = []
+                for row in rows:
+                    msg_date = row[1]
+                    formatted_date = msg_date.strftime("%Y-%m-%d %H:%M:%S") if msg_date else None
+                    user_messages.append({
+                        "message": row[0] if row[0] else "No content",
+                        "date": formatted_date
+                    })
+                
+                if user_messages:
+                    print(f"   - Sample Message: {user_messages[0]['message'][:100]}...")
+                    print(f"   - Sample Date: {user_messages[0]['date']}")
+                
+            else:
+                print(f"\n❌ User '{selected_user}' not active in selected date range!")
+                print(f"   - Total Active Users: {len(users)}")
+                if users:
+                    print(f"   - Sample Active Users: {users[:5]}")
+        else:
+            print(f"\nℹ️ No user selected for drilldown")
+
+        # ================= HELPERS =================
+        def percentage_change(current, previous):
+            if previous == 0:
+                return 0.0
+            change = ((current - previous) / previous) * 100
+            return max(min(change, 100), -100)
+
+        def get_trend(value):
+            if value > 0:
+                return "up"
+            elif value < 0:
+                return "down"
+            return "flat"
+
+        def build_card(value, prev):
+            change = percentage_change(value, prev)
+            return {
+                "value": value,
+                "trend": {
+                    "value": round(change, 1),
+                    "direction": get_trend(change)
+                }
+            }
+
+        # ================= CARDS =================
+        cards = {
+            "total_messages": build_card(current_total, prev_total),
+            "unique_users": build_card(current_users, prev_users),
+            "avg_messages_per_user": {
+                "value": current_avg,
+                "trend": {
+                    "value": round(percentage_change(current_avg, prev_avg), 1),
+                    "direction": get_trend(percentage_change(current_avg, prev_avg))
+                }
+            },
+            "top_user": {
+                "value": top_user,
+                "count": top_user_count,
+                "trend": {"value": 0, "direction": "flat"}
+            }
+        }
+
+        # ================= BUILD CHARTS =================
+
+        # 📊 Top Users Chart
+        if top_users_data:
+            # Use the imported build_chart function
+            top_users_chart = build_chart(
+                chart_id="top_users",
+                chart_type="bar",
+                data=top_users_data,
+                x_key="name",
+                y_label="Count",
+                title="Top 20 Users",
+                tooltip="Users who used Lens",
+                icon="bi-bar-chart-fill",
+                layout="horizontal",
+                color="#7B61FF",
+                margin={"top": 25, "right": 10, "left": 30, "bottom": 30},
+                x_label_offset=-19,
+                y_label_offset=-10
+            )
+        else:
+            top_users_chart = None
+            print("⚠️ No top users data available")
+
+        # 📈 Daily Trend Chart
+        if daily_data:
+            # Use the imported build_chart function
+            daily_count_chart = build_chart(
+                chart_id="daily_count",
+                chart_type="area",
+                data=daily_data,
+                x_key="date",
+                y_label="Count",
+                title="Daily Usage Trend",
+                tooltip="Messages per day",
+                icon="bi-graph-up",
+                color="#3B82F6",
+                margin={"top": 25, "right": 10, "left": 30, "bottom": 30},
+                x_label_offset=-19,
+                y_label_offset=-15
+            )
+        else:
+            daily_count_chart = None
+            print("⚠️ No daily data available")
+
+        # ================= RESPONSE =================
+        main_charts = []
+        if daily_count_chart:
+            main_charts.append(daily_count_chart)
+        if top_users_chart:
+            main_charts.append(top_users_chart)
+
+        print("\n" + "="*80)
+        print("📤 FINAL RESPONSE SUMMARY")
+        print("="*80)
+        print(f"   - Cards: 4 KPIs")
+        print(f"   - Main Charts: {len(main_charts)}")
+        print(f"   - Active Users: {len(users)}")
+        print(f"   - User Chart: {'Yes' if user_chart else 'No'}")
+        print(f"   - User Messages: {len(user_messages)}")
+        if user_chart:
+            print(f"   - User Chart Data Points: {len(user_chart.get('data', []))}")
+        print("="*80 + "\n")
+
+        all_charts = main_charts.copy()
+
+        if user_chart:
+            all_charts.append(user_chart)
+
+        return Response({
+            "cards": cards,
+            "charts": all_charts,
+            "users": users,
+            "selected_user_messages": user_messages if selected_user and user_exists else []
+        })
+
+
 
 
 class SocialMediaDailyView(APIView):
@@ -881,439 +1258,6 @@ class SocialMediaDailyView(APIView):
         
 
 
-
-from django.db import connection
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from datetime import datetime, timedelta
-
-
-class LensAnalyticsView(APIView):
-
-    # ================= CHART BUILDER =================
-    def build_chart(
-        self,
-        chart_id,
-        chart_type,
-        data,
-        x_key,
-        y_label,
-        title,
-        tooltip,
-        icon,
-        layout=None,
-        color=None,
-        radius=None,
-        margin=None,
-        x_label_offset=None,
-        y_label_offset=None
-    ):
-
-        config = {
-            "xKey": x_key,
-            "xLabel": x_key.capitalize(),
-            "yLabel": y_label,
-            "margin": margin or {"top": 20, "right": 10, "left": 20, "bottom": 30},
-            "xLabelOffset": x_label_offset if x_label_offset is not None else -10,
-            "yLabelOffset": y_label_offset if y_label_offset is not None else -10
-        }
-
-        if chart_type == "bar":
-            layout = layout or "horizontal"
-            color = color or "#7B61FF"
-
-            final_radius = (
-                radius if radius else
-                ([0, 8, 8, 0] if layout == "vertical" else [8, 8, 0, 0])
-            )
-
-            config["layout"] = layout
-            config["bars"] = [
-                {"key": "value", "color": color, "radius": final_radius}
-            ]
-
-        elif chart_type == "area":
-            color = color or "#7B61FF"
-            config["areas"] = [{"key": "value", "color": color}]
-
-        elif chart_type == "pie":
-            config = {}
-
-        return {
-            "id": chart_id,
-            "title": title,
-            "tooltip": tooltip,
-            "icon": icon,
-            "type": chart_type,
-            "data": data,
-            "config": config
-        }
-
-    # ================= MAIN API =================
-    def get(self, request):
-        
-        print("\n" + "="*80)
-        print("🚀 LENS ANALYTICS API CALLED")
-        print("="*80)
-
-        table = "lens_src.prod_lens_user_requests"
-
-        from_date = request.GET.get("from_date")
-        to_date = request.GET.get("to_date")
-        selected_user = request.GET.get("user")
-
-        print(f"\n📅 Request Parameters:")
-        print(f"   - From Date: {from_date}")
-        print(f"   - To Date: {to_date}")
-        print(f"   - Selected User: {selected_user if selected_user else 'None (All Users)'}")
-
-        # ================= DATE HANDLING =================
-        current_from = datetime.strptime(from_date, "%Y-%m-%d")
-        current_to = datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1)
-
-        diff_days = (current_to - current_from).days
-        prev_to = current_from
-        prev_from = prev_to - timedelta(days=diff_days)
-
-        current_from_str = current_from.strftime("%Y-%m-%d")
-        current_to_str = current_to.strftime("%Y-%m-%d")
-        prev_from_str = prev_from.strftime("%Y-%m-%d")
-        prev_to_str = prev_to.strftime("%Y-%m-%d")
-
-        print(f"\n📊 Date Ranges:")
-        print(f"   - Current: {current_from_str} to {current_to_str}")
-        print(f"   - Previous: {prev_from_str} to {prev_to_str}")
-
-        # ================= KPI QUERY =================
-        print("\n🔍 Executing KPI Query...")
-        kpi_query = f"""
-        SELECT
-            SUM(CASE WHEN created_date >= %s AND created_date < %s THEN 1 ELSE 0 END),
-            COUNT(DISTINCT CASE WHEN created_date >= %s AND created_date < %s THEN recipient_name END),
-            SUM(CASE WHEN created_date >= %s AND created_date < %s THEN 1 ELSE 0 END),
-            COUNT(DISTINCT CASE WHEN created_date >= %s AND created_date < %s THEN recipient_name END)
-        FROM {table}
-        WHERE recipient_name IS NOT NULL AND recipient_name != ''
-        """
-
-        params = [
-            current_from_str, current_to_str,
-            current_from_str, current_to_str,
-            prev_from_str, prev_to_str,
-            prev_from_str, prev_to_str
-        ]
-
-        with connection.cursor() as cursor:
-            cursor.execute(kpi_query, params)
-            row = cursor.fetchone()
-
-        current_total, current_users, prev_total, prev_users = row
-
-        current_total = current_total or 0
-        current_users = current_users or 0
-        prev_total = prev_total or 0
-        prev_users = prev_users or 0
-
-        print(f"\n📈 KPI Results:")
-        print(f"   - Current: {current_total} messages, {current_users} users")
-        print(f"   - Previous: {prev_total} messages, {prev_users} users")
-
-        current_avg = round(current_total / current_users, 2) if current_users else 0
-        prev_avg = round(prev_total / prev_users, 2) if prev_users else 0
-
-        # ================= TOP USERS (within date range) =================
-        print("\n🏆 Fetching Top Users...")
-        top_users_query = f"""
-            SELECT recipient_name AS name, COUNT(*) AS value
-            FROM {table}
-            WHERE recipient_name IS NOT NULL AND recipient_name != ''
-              AND created_date >= %s AND created_date < %s
-            GROUP BY recipient_name
-            ORDER BY value DESC
-            LIMIT 20
-        """
-        
-        # Use the end date + 1 day for proper range
-        to_date_plus_one = datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1)
-        to_date_plus_one_str = to_date_plus_one.strftime("%Y-%m-%d")
-
-        with connection.cursor() as cursor:
-            cursor.execute(top_users_query, [from_date, to_date_plus_one_str])
-            columns = [col[0] for col in cursor.description]
-            rows = cursor.fetchall()
-
-        top_users_data = [dict(zip(columns, row)) for row in rows]
-
-        top_user = top_users_data[0]["name"] if top_users_data else "-"
-        top_user_count = top_users_data[0]["value"] if top_users_data else 0
-        
-        print(f"   - Top User: {top_user} ({top_user_count} messages)")
-        print(f"   - Total in Top 20: {len(top_users_data)}")
-
-        # ================= DAILY TREND =================
-        print("\n📅 Fetching Daily Data...")
-        daily_query = f"""
-            SELECT DATE(created_date) AS date, COUNT(*) AS value
-            FROM {table}
-            WHERE created_date >= %s AND created_date < %s
-            GROUP BY DATE(created_date)
-            ORDER BY DATE(created_date)
-        """
-
-        with connection.cursor() as cursor:
-            cursor.execute(daily_query, [from_date, to_date_plus_one_str])
-            columns = [col[0] for col in cursor.description]
-            rows = cursor.fetchall()
-
-        daily_data = [dict(zip(columns, row)) for row in rows]
-        print(f"   - Daily Data Points: {len(daily_data)}")
-
-        # ================= USERS LIST (only users active in date range) =================
-        print("\n👥 Fetching Users Active in Date Range...")
-        users_query = f"""
-            SELECT DISTINCT recipient_name
-            FROM {table}
-            WHERE recipient_name IS NOT NULL AND recipient_name != ''
-              AND created_date >= %s AND created_date < %s
-            ORDER BY recipient_name
-        """
-
-        with connection.cursor() as cursor:
-            cursor.execute(users_query, [from_date, to_date_plus_one_str])
-            users = [row[0] for row in cursor.fetchall()]
-        
-        print(f"   - Total Active Users: {len(users)}")
-        if users:
-            print(f"   - Sample Users: {users[:5]}")
-
-        # ================= USER DRILLDOWN =================
-        print("\n" + "="*80)
-        print("👤 USER DRILLDOWN SECTION")
-        print("="*80)
-        
-        user_chart = None
-        user_messages = []
-
-        print(f"\n🔍 Checking User Drilldown:")
-        print(f"   - Selected User: {selected_user if selected_user else 'None'}")
-        
-        if selected_user:
-            # Check if user exists in active users
-            user_exists = selected_user in users
-            print(f"   - User Active in Date Range: {user_exists}")
-            
-            if user_exists:
-                print(f"\n✅ User '{selected_user}' found. Fetching detailed data...")
-                
-                # -------- DAILY CHART --------
-                print(f"\n📊 Fetching daily activity for user: {selected_user}")
-                user_daily_query = f"""
-                    SELECT DATE(created_date) AS date, COUNT(*) AS value
-                    FROM {table}
-                    WHERE recipient_name = %s
-                      AND created_date >= %s AND created_date < %s
-                    GROUP BY DATE(created_date)
-                    ORDER BY DATE(created_date)
-                """
-
-                with connection.cursor() as cursor:
-                    cursor.execute(user_daily_query, [selected_user, from_date, to_date_plus_one_str])
-                    columns = [col[0] for col in cursor.description]
-                    rows = cursor.fetchall()
-                    print(f"   - Raw Query Results: {len(rows)} rows")
-
-                user_daily_data = [dict(zip(columns, row)) for row in rows]
-                print(f"   - Processed Data Points: {len(user_daily_data)}")
-                
-                if user_daily_data:
-                    # Ensure data has proper format
-                    formatted_data = []
-                    for item in user_daily_data:
-                        formatted_data.append({
-                            "date": str(item['date']) if item['date'] else "",
-                            "value": int(item['value']) if item['value'] else 0
-                        })
-                    
-                    print(f"   - Sample Formatted Data: {formatted_data[:3]}")
-                    
-                    # Calculate total
-                    total_messages = sum(item['value'] for item in formatted_data)
-                    print(f"   - Total Messages: {total_messages}")
-                    
-                    # Only create chart if there's data
-                    if formatted_data and total_messages > 0:
-                        user_chart = self.build_chart(
-                            chart_id="user_daily",
-                            chart_type="bar",
-                            data=formatted_data,
-                            x_key="date",
-                            y_label="Messages",
-                            title=f"{selected_user}'s Activity",
-                            tooltip="Messages per day",
-                            icon="bi-person-lines-fill",
-                            layout="horizontal",
-                            color="#10B981",
-                            margin={"top": 25, "right": 0, "left": 18, "bottom": 30},
-                            x_label_offset=-15,
-                            y_label_offset=-10
-                        )
-                        print(f"   ✅ User chart created with {len(formatted_data)} data points")
-                    else:
-                        print(f"   ⚠️ No valid data for chart creation")
-                else:
-                    print(f"   ⚠️ No daily activity data found for user '{selected_user}'")
-
-                # -------- MESSAGES --------
-                print(f"\n💬 Fetching messages for user: {selected_user}")
-                user_messages_query = f"""
-                    SELECT message, created_date
-                    FROM {table}
-                    WHERE recipient_name = %s
-                      AND created_date >= %s AND created_date < %s
-                    ORDER BY created_date DESC
-                """
-
-                with connection.cursor() as cursor:
-                    cursor.execute(user_messages_query, [selected_user, from_date, to_date_plus_one_str])
-                    rows = cursor.fetchall()
-                    print(f"   - Messages Found: {len(rows)}")
-
-                user_messages = []
-                for row in rows:
-                    msg_date = row[1]
-                    formatted_date = msg_date.strftime("%Y-%m-%d %H:%M:%S") if msg_date else None
-                    user_messages.append({
-                        "message": row[0] if row[0] else "No content",
-                        "date": formatted_date
-                    })
-                
-                if user_messages:
-                    print(f"   - Sample Message: {user_messages[0]['message'][:100]}...")
-                    print(f"   - Sample Date: {user_messages[0]['date']}")
-                
-            else:
-                print(f"\n❌ User '{selected_user}' not active in selected date range!")
-                print(f"   - Total Active Users: {len(users)}")
-                if users:
-                    print(f"   - Sample Active Users: {users[:5]}")
-        else:
-            print(f"\nℹ️ No user selected for drilldown")
-
-        # ================= HELPERS =================
-        def percentage_change(current, previous):
-            if previous == 0:
-                return 0.0
-            change = ((current - previous) / previous) * 100
-            return max(min(change, 100), -100)
-
-        def get_trend(value):
-            if value > 0:
-                return "up"
-            elif value < 0:
-                return "down"
-            return "flat"
-
-        def build_card(value, prev):
-            change = percentage_change(value, prev)
-            return {
-                "value": value,
-                "trend": {
-                    "value": round(change, 1),
-                    "direction": get_trend(change)
-                }
-            }
-
-        # ================= CARDS =================
-        cards = {
-            "total_messages": build_card(current_total, prev_total),
-            "unique_users": build_card(current_users, prev_users),
-            "avg_messages_per_user": {
-                "value": current_avg,
-                "trend": {
-                    "value": round(percentage_change(current_avg, prev_avg), 1),
-                    "direction": get_trend(percentage_change(current_avg, prev_avg))
-                }
-            },
-            "top_user": {
-                "value": top_user,
-                "count": top_user_count,
-                "trend": {"value": 0, "direction": "flat"}
-            }
-        }
-
-        # ================= BUILD CHARTS =================
-
-        # 📊 Top Users Chart
-        if top_users_data:
-            top_users_chart = self.build_chart(
-                chart_id="top_users",
-                chart_type="bar",
-                data=top_users_data,
-                x_key="name",
-                y_label="Count",
-                title="Top 20 Users",
-                tooltip="Users who used Lens",
-                icon="bi-bar-chart-fill",
-                layout="horizontal",
-                color="#7B61FF",
-                margin={"top": 25, "right": 10, "left": 30, "bottom": 30},
-                x_label_offset=-19,
-                y_label_offset=-10
-            )
-        else:
-            top_users_chart = None
-            print("⚠️ No top users data available")
-
-        # 📈 Daily Trend Chart
-        if daily_data:
-            daily_count_chart = self.build_chart(
-                chart_id="daily_count",
-                chart_type="area",
-                data=daily_data,
-                x_key="date",
-                y_label="Count",
-                title="Daily Usage Trend",
-                tooltip="Messages per day",
-                icon="bi-graph-up",
-                color="#3B82F6",
-                margin={"top": 25, "right": 10, "left": 30, "bottom": 30},
-                x_label_offset=-19,
-                y_label_offset=-15
-            )
-        else:
-            daily_count_chart = None
-            print("⚠️ No daily data available")
-
-        # ================= RESPONSE =================
-        main_charts = []
-        if daily_count_chart:
-            main_charts.append(daily_count_chart)
-        if top_users_chart:
-            main_charts.append(top_users_chart)
-
-        print("\n" + "="*80)
-        print("📤 FINAL RESPONSE SUMMARY")
-        print("="*80)
-        print(f"   - Cards: 4 KPIs")
-        print(f"   - Main Charts: {len(main_charts)}")
-        print(f"   - Active Users: {len(users)}")
-        print(f"   - User Chart: {'Yes' if user_chart else 'No'}")
-        print(f"   - User Messages: {len(user_messages)}")
-        if user_chart:
-            print(f"   - User Chart Data Points: {len(user_chart.get('data', []))}")
-        print("="*80 + "\n")
-
-        all_charts = main_charts.copy()
-
-        if user_chart:
-            all_charts.append(user_chart)
-
-        return Response({
-            "cards": cards,
-            "charts": all_charts,   # ✅ FIX
-            "users": users,
-            "selected_user_messages": user_messages if selected_user and user_exists else []
-        })
 
 
 
