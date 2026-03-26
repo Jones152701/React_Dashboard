@@ -8,7 +8,7 @@ import AnimatedList from "../../component/AnimatedList";
 interface ChartResponse {
     id: string;
     title: string;
-    type: "bar" | "pie" | "area";
+    type: "bar" | "pie" | "area" | "treemap";
     tooltip?: string;
     icon?: string;
     data: any[];

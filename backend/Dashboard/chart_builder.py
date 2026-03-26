@@ -1,74 +1,223 @@
-# chart_builder.py
-
 def build_chart(
     chart_id,
     chart_type,
     data,
     x_key,
-    y_label,
-    title,
-    tooltip,
-    icon,
+    y_key=None,
+    title="",
+    tooltip="",
+    icon="",
     layout=None,
-    color=None,
+    color=None,  # Can be string, list, or dict
     radius=None,
     margin=None,
     x_label_offset=None,
-    y_label_offset=None
+    y_label_offset=None,
+    series=None,
+    is_date=False,
+    height=None,
+    x_label=None,
+    y_label=None
 ):
     """
-    Build a chart configuration for the frontend
+    Clean chart builder with explicit chart types:
+    - bar (single series)
+    - stackedbar (multi-series stacked)
+    - area (single or multi-series)
+    - pie
+    - treemap
     
-    Args:
-        chart_id: Unique identifier for the chart
-        chart_type: Type of chart ('bar', 'area', 'pie')
-        data: List of dictionaries containing chart data
-        x_key: Key for x-axis values in data objects
-        y_label: Label for y-axis
-        title: Chart title
-        tooltip: Tooltip text for the chart
-        icon: Icon class name for the chart
-        layout: Layout for bar charts ('horizontal' or 'vertical')
-        color: Color for the chart elements
-        radius: Border radius for bars
-        margin: Margin configuration dictionary
-        x_label_offset: Offset for x-axis label
-        y_label_offset: Offset for y-axis label
-    
-    Returns:
-        dict: Chart configuration dictionary
+    Color can be:
+    - String: "#7B61FF" (single color)
+    - List: ["#3B82F6", "#EF4444"] (alternating colors)
+    - Dict: {"resolved": "#10b95d", "pending": "#3B82F6"} (semantic mapping)
     """
-    
-    config = {
-        "xKey": x_key,
-        "xLabel": x_key.capitalize(),
-        "yLabel": y_label,
-        "margin": margin or {"top": 20, "right": 10, "left": 20, "bottom": 30},
-        "xLabelOffset": x_label_offset if x_label_offset is not None else -10,
-        "yLabelOffset": y_label_offset if y_label_offset is not None else -10
-    }
 
+    margin = margin or {"top": 20, "right": 10, "left": 20, "bottom": 30}
+
+    # ================= BAR (SINGLE SERIES) =================
     if chart_type == "bar":
-        layout = layout or "horizontal"
-        color = color or "#7B61FF"
-
-        final_radius = (
-            radius if radius else
-            ([0, 8, 8, 0] if layout == "vertical" else [8, 8, 0, 0])
+        layout = (layout or "vertical").lower()
+        
+        final_radius = radius or (
+            [0, 8, 8, 0] if layout == "vertical" else [8, 8, 0, 0]
         )
 
-        config["layout"] = layout
-        config["bars"] = [
-            {"key": "value", "color": color, "radius": final_radius}
-        ]
+        # ✅ Enhanced color handling
+        x_label_final = x_label or x_key.capitalize()
+        
+        if y_label:
+            y_label_final = y_label
+        elif y_key:
+            y_label_final = y_key.capitalize()
+        else:
+            y_label_final = "Count"
+        
+        config = {
+            "xKey": x_key,
+            "yKey": y_key or "value",
+            "layout": layout,
+            "color": color if isinstance(color, str) else None,
+            "colors": color if isinstance(color, list) else None,
+            "colorsMap": color if isinstance(color, dict) else None,
+            "radius": final_radius,
+            "margin": margin,
+            "xLabel": x_label_final,
+            "yLabel": y_label_final,
+            "xLabelOffset": x_label_offset if x_label_offset is not None else -10,
+            "yLabelOffset": y_label_offset if y_label_offset is not None else -10,
+            "isDate": is_date,
+            "height": height
+        }
 
+    # ================= STACKED BAR =================
+    elif chart_type == "stackedbar":
+        layout = (layout or "vertical").lower()
+
+        if not series:
+            raise ValueError("stackedbar requires 'series'")
+
+        bars = []
+
+        for i, s in enumerate(series):
+            is_top = i == len(series) - 1
+
+            final_radius = radius or (
+                [0, 8, 8, 0] if layout == "vertical" else [8, 8, 0, 0]
+            )
+
+            # ✅ Series colors can also be dynamic
+            bar_color = s.get("color")
+            if not bar_color and isinstance(color, dict):
+                bar_color = color.get(s.get("key"))
+            elif not bar_color and isinstance(color, list) and i < len(color):
+                bar_color = color[i]
+            elif not bar_color:
+                bar_color = color if isinstance(color, str) else "#7B61FF"
+
+            bars.append({
+                "key": s.get("key"),
+                "name": s.get("name", s.get("key").capitalize()),
+                "color": bar_color,
+                "stackId": chart_id,
+                "radius": final_radius if is_top else [0, 0, 0, 0]
+            })
+
+        x_label_final = x_label or x_key.capitalize()
+        
+        if y_label:
+            y_label_final = y_label
+        elif y_key:
+            y_label_final = y_key.capitalize()
+        else:
+            y_label_final = "Count"
+        
+        config = {
+            "xKey": x_key,
+            "layout": layout,
+            "bars": bars,
+            "margin": margin,
+            "xLabel": x_label_final,
+            "yLabel": y_label_final,
+            "xLabelOffset": x_label_offset if x_label_offset is not None else -10,
+            "yLabelOffset": y_label_offset if y_label_offset is not None else -10,
+            "isDate": is_date,
+            "height": height
+        }
+
+    # ================= AREA =================
     elif chart_type == "area":
-        color = color or "#7B61FF"
-        config["areas"] = [{"key": "value", "color": color}]
+        areas = []
+        
+        if series and len(series) > 0:
+            # Multi-series area chart
+            for i, s in enumerate(series):
+                # ✅ Area colors with priority
+                area_color = s.get("color")
+                if not area_color and isinstance(color, dict):
+                    area_color = color.get(s.get("key"))
+                elif not area_color and isinstance(color, list) and i < len(color):
+                    area_color = color[i]
+                elif not area_color:
+                    area_color = color if isinstance(color, str) else "#7B61FF"
+                
+                areas.append({
+                    "key": s.get("key"),
+                    "name": s.get("name", s.get("key").capitalize()),
+                    "color": area_color
+                })
+        else:
+            # Single-series area chart
+            area_color = color if isinstance(color, str) else "#7B61FF"
+            areas.append({
+                "key": y_key or "value",
+                "color": area_color
+            })
+        
+        x_label_final = x_label or x_key.capitalize()
+        
+        if y_label:
+            y_label_final = y_label
+        elif y_key:
+            y_label_final = y_key.capitalize()
+        else:
+            y_label_final = "Value"
+        
+        config = {
+            "xKey": x_key,
+            "yKey": y_key or "value",
+            "areas": areas,
+            "margin": margin,
+            "xLabel": x_label_final,
+            "yLabel": y_label_final,
+            "xLabelOffset": x_label_offset if x_label_offset is not None else -10,
+            "yLabelOffset": y_label_offset if y_label_offset is not None else -10,
+            "isDate": is_date,
+            "height": height
+        }
 
+    # ================= PIE =================
     elif chart_type == "pie":
-        config = {}
+        config = {
+            "nameKey": x_key,
+            "dataKey": y_key or "value",
+            "radius": radius or 0.8,
+            "innerRadius": 0,
+            "isDate": is_date,
+            "colors": color if isinstance(color, list) else None,
+            "colorsMap": color if isinstance(color, dict) else None,
+            "height": height
+        }
 
+    # ================= TREEMAP =================
+    elif chart_type == "treemap":
+        # ✅ Treemap can also use semantic colors
+        treemap_colors = None
+        if isinstance(color, list):
+            treemap_colors = color
+        elif isinstance(color, str):
+            treemap_colors = [color]
+        elif isinstance(color, dict):
+            # For treemap, we'll use the first color from dict or default
+            treemap_colors = [list(color.values())[0] if color else "#7B61FF"]
+        else:
+            treemap_colors = ["#7B61FF"]
+        
+        config = {
+            "dataKey": "value",
+            "nameKey": x_key,
+            "colors": treemap_colors,
+            "stroke": "#fff",
+            "borderRadius": radius or 4,
+            "aspectRatio": 4 / 3,
+            "isDate": is_date,
+            "height": height
+        }
+
+    else:
+        raise ValueError(f"Unsupported chart_type: {chart_type}")
+
+    # ================= FINAL OBJECT =================
     return {
         "id": chart_id,
         "title": title,

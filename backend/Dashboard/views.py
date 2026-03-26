@@ -156,6 +156,7 @@ class LensAnalyticsView(APIView):
         
         user_chart = None
         user_messages = []
+        user_exists = False
 
         print(f"\n🔍 Checking User Drilldown:")
         print(f"   - Selected User: {selected_user if selected_user else 'None'}")
@@ -205,13 +206,13 @@ class LensAnalyticsView(APIView):
                     
                     # Only create chart if there's data
                     if formatted_data and total_messages > 0:
-                        # Use the imported build_chart function
+                        # ✅ FIXED: Use y_key instead of y_label
                         user_chart = build_chart(
                             chart_id="user_daily",
                             chart_type="bar",
                             data=formatted_data,
                             x_key="date",
-                            y_label="Messages",
+                            y_key="value",  # ✅ FIXED
                             title=f"{selected_user}'s Activity",
                             tooltip="Messages per day",
                             icon="bi-person-lines-fill",
@@ -219,7 +220,8 @@ class LensAnalyticsView(APIView):
                             color="#10B981",
                             margin={"top": 25, "right": 0, "left": 18, "bottom": 30},
                             x_label_offset=-15,
-                            y_label_offset=-10
+                            y_label_offset=-10,
+                            is_date=True  # ✅ IMPORTANT
                         )
                         print(f"   ✅ User chart created with {len(formatted_data)} data points")
                     else:
@@ -309,13 +311,13 @@ class LensAnalyticsView(APIView):
 
         # 📊 Top Users Chart
         if top_users_data:
-            # Use the imported build_chart function
+            # ✅ FIXED: Use y_key instead of y_label
             top_users_chart = build_chart(
                 chart_id="top_users",
                 chart_type="bar",
                 data=top_users_data,
                 x_key="name",
-                y_label="Count",
+                y_key="value",  # ✅ FIXED
                 title="Top 20 Users",
                 tooltip="Users who used Lens",
                 icon="bi-bar-chart-fill",
@@ -331,20 +333,21 @@ class LensAnalyticsView(APIView):
 
         # 📈 Daily Trend Chart
         if daily_data:
-            # Use the imported build_chart function
+            # ✅ FIXED: Use y_key and area chart type
             daily_count_chart = build_chart(
                 chart_id="daily_count",
-                chart_type="area",
+                chart_type="area",  # ✅ NOW VALID
                 data=daily_data,
                 x_key="date",
-                y_label="Count",
+                y_key="value",  # ✅ FIXED
                 title="Daily Usage Trend",
                 tooltip="Messages per day",
                 icon="bi-graph-up",
                 color="#3B82F6",
                 margin={"top": 25, "right": 10, "left": 30, "bottom": 30},
                 x_label_offset=-19,
-                y_label_offset=-15
+                y_label_offset=-15,
+                is_date=True  # ✅ IMPORTANT
             )
         else:
             daily_count_chart = None
@@ -383,10 +386,16 @@ class LensAnalyticsView(APIView):
 
 
 
-
 class SocialMediaDailyView(APIView):
 
     def get(self, request):
+        import re
+        from collections import Counter
+        from datetime import datetime, timedelta
+        import math
+        from django.db import connection
+        from rest_framework.response import Response
+        from rest_framework.views import APIView
 
         table = "lens_src.lyca_social_media_reviews"
 
@@ -831,6 +840,7 @@ class SocialMediaDailyView(APIView):
                     ]
 
                     # ---------------- Word Cloud & Hashtags ----------------
+                    top_words=200
                     word_counter = Counter()
                     hashtag_counter = Counter()
 
@@ -930,7 +940,7 @@ class SocialMediaDailyView(APIView):
                                 }
                                 # ✅ TAKE TOP 100
                                 top_words = dict(
-                                    sorted(normalized_words.items(), key=lambda x: x[1], reverse=True)[:100]
+                                    sorted(normalized_words.items(), key=lambda x: x[1], reverse=True)[:top_words]
                                 )
                             else:
                                 top_words = {}
@@ -1208,38 +1218,297 @@ class SocialMediaDailyView(APIView):
                         for row in churn_rows
                     ]
 
+                    # =============== BUILD CHARTS ===============
+                    charts = []
+
+                  # 1️⃣ Daily Sentiment → STACKED BAR
+                    if daily_sentiment:
+                        charts.append(build_chart(
+                            chart_id="daily_sentiment",
+                            chart_type="stackedbar",
+                            data=daily_sentiment,
+                            x_key="day",
+                            y_key="value",
+                            title="Daily Sentiment",
+                            tooltip="Sentiment distribution per day",
+                            icon="bi-bar-chart-fill",
+                            layout="horizontal",
+                            series=[
+                                {"key": "positive", "name": "Positive", "color": "#10b95d"},
+                                {"key": "neutral", "name": "Neutral", "color": "#767676"},
+                                {"key": "negative", "name": "Negative", "color": "#f65656"},
+                            ],
+                            is_date=True,
+                            height=350,
+                            x_label="Date",           # ✅ Custom X-axis label
+                            y_label="Count"  # ✅ Custom Y-axis label
+                        ))
+
+                    # 2️⃣ Rating Distribution → BAR
+                    if rating_distribution:
+                        charts.append(build_chart(
+                            chart_id="rating_distribution",
+                            chart_type="bar",
+                            data=rating_distribution,
+                            x_key="rating",
+                            y_key="count",
+                            title="Rating Distribution",
+                            tooltip="Distribution of user ratings",
+                            icon="bi-star-fill",
+                            layout="horizontal",
+                            color="#F59E0B",
+                            height=320,
+                            x_label="Ratings",    # ✅ Custom X-axis label
+                            y_label="Count",   # ✅ Custom Y-axis label
+                            margin={ "top": 30, "right": 0, "left":20, "bottom": 14}
+                        ))
+
+                    # 3️⃣ Sentiment Score Trend → AREA
+                    if sentiment_score_trend:
+                        charts.append(build_chart(
+                            chart_id="sentiment_score_trend",
+                            chart_type="area",
+                            data=sentiment_score_trend,
+                            x_key="day",
+                            y_key="score",
+                            title="Sentiment Score Trend",
+                            tooltip="Average sentiment score over time",
+                            icon="bi-activity",
+                            color="#3B82F6",
+                            is_date=True,
+                            height=320,
+                            x_label="Date",              # ✅ Custom X-axis label
+                            y_label="Scores",   # ✅ Custom Y-axis label
+                            margin={ "top": 30, "right": 0, "left":20, "bottom": 14}
+                        ))
+
+                    # 4️⃣ Language Distribution → BAR
+                    if language_distribution:
+                        charts.append(build_chart(
+                            chart_id="language_distribution",
+                            chart_type="bar",
+                            data=language_distribution,
+                            x_key="name",
+                            y_key="value",
+                            title="Language Distribution",
+                            tooltip="Distribution by language",
+                            icon="bi-globe",
+                            color="#8B5CF6",
+                            layout="horizontal",
+                            height=300,
+                            x_label="Languages",        
+                            y_label="Count"  ,
+                            margin={ "top": 30, "right": 0, "left": 18, "bottom": 13 } 
+                        ))
+
+                    # 5️⃣ Gender Distribution → PIE
+                    if gender_distribution:
+                        charts.append(build_chart(
+                            chart_id="gender_distribution",
+                            chart_type="pie",
+                            data=gender_distribution,
+                            x_key="name",
+                            y_key="value",
+                            title="Gender Distribution",
+                            tooltip="User gender split",
+                            icon="bi-people",
+                            color={
+                                "male": "#3B82F6",
+                                "female": "#EC4899"
+                            },
+                            height=280
+                        ))
+
+                    # 6️⃣ Activity by Hour → BAR
+                    if activity_by_hour:
+                        charts.append(build_chart(
+                            chart_id="activity_by_hour",
+                            chart_type="bar",
+                            data=activity_by_hour,
+                            x_key="hour",
+                            y_key="count",
+                            title="Activity by Hour",
+                            tooltip="User activity by time of day",
+                            icon="bi-clock",
+                            color="#6366F1",
+                            layout="horizontal",
+                            height=350,
+                            x_label="Hours",       # ✅ Custom X-axis label
+                            y_label="Count",
+                            margin={ "top": 30, "right": 0, "left": 20, "bottom": 15}   # ✅ Custom Y-axis label
+                        ))
+
+                    # 7️⃣ Activity by Day → BAR
+                    if activity_by_day:
+                        charts.append(build_chart(
+                            chart_id="activity_by_day",
+                            chart_type="bar",
+                            data=activity_by_day,
+                            x_key="day",
+                            y_key="count",
+                            title="Activity by Day",
+                            tooltip="User activity by day of week",
+                            icon="bi-calendar",
+                            color="#10B981",
+                            layout="horizontal",
+                            height=350,
+                            x_label="Weeks",       # ✅ Custom X-axis label
+                            y_label="Count"  # ✅ Custom Y-axis label
+                        ))
+
+                    # 8️⃣ Primary Mentions → TREEMAP
+                    if primary_mentions:
+                        charts.append(build_chart(
+                            chart_id="primary_mentions",
+                            chart_type="treemap",
+                            data=primary_mentions,
+                            x_key="name",
+                            y_key="value",
+                            title="Primary Mentions",
+                            tooltip="Top mentioned topics",
+                            icon="bi-diagram-3",
+                            color=[
+                                '#9F8FFF','#60A5FA','#9CA3AF','#F87171',  
+                                '#4ADE80','#FBBF24','#8B5CF6','#EC4899',  
+                                '#14B8A6','#FB923C','#22C55E',  
+                                '#6366F1','#DB2777','#7C3AED','#06B6D4'
+                            ],
+                            height=350
+                            
+                        ))
+
+                    # 9️⃣ Issue Type → BAR (VERTICAL) - IMPORTANT FIX
+                    if issue_type_distribution:
+                        charts.append(build_chart(
+                            chart_id="issue_type",
+                            chart_type="bar",
+                            data=issue_type_distribution,
+                            x_key="name",
+                            y_key="value",
+                            title="Issue Type Distribution",
+                            tooltip="Types of issues reported",
+                            icon="bi-exclamation-triangle",
+                            layout="vertical",      # ✅ Vertical layout
+                            color="#EF4444",
+                            height=350,             # ✅ Number, not string!
+                            x_label="Count",  # ✅ Custom X-axis label (bottom)
+                            y_label="Issues",
+                            margin={ "top": 10, "right": 0, "left": 30, "bottom": 10}               # ✅ Custom Y-axis label (left)
+                        ))
+
+                    # 🔟 Journey Sentiment → STACKED BAR
+                    if journey_sentiment:
+                        charts.append(build_chart(
+                            chart_id="journey_sentiment",
+                            chart_type="stackedbar",
+                            data=journey_sentiment,
+                            x_key="stage",
+                            y_key="value",
+                            title="Journey Stage vs Sentiment",
+                            tooltip="Sentiment distribution by journey stage",
+                            icon="bi-map",
+                            layout="horizontal",
+                            series=[
+                                {"key": "positive", "name": "Positive", "color": "#10b95d"},
+                                {"key": "neutral", "name": "Neutral", "color": "#767676"},
+                                {"key": "negative", "name": "Negative", "color": "#f65656"},
+                            ],
+                            height=300,
+                            x_label="Journey Stage",     # ✅ Custom X-axis label
+                            y_label="Count" ,  # ✅ Custom Y-axis label
+                            margin={ "top": 30, "right": 0, "left": 20, "bottom": 14}
+                        ))
+
+                    # 1️⃣1️⃣ Resolution Status → BAR
+                    if resolution_status:
+                        charts.append(build_chart(
+                            chart_id="resolution_status",
+                            chart_type="bar",
+                            data=resolution_status,
+                            x_key="name",
+                            y_key="value",
+                            title="Resolution Status",
+                            tooltip="Current resolution status",
+                            icon="bi-check-circle",
+                            layout="horizontal",
+                            height=300,
+                            x_label="Resolution Status",  # ✅ Custom X-axis label
+                            y_label="Count",    # ✅ Custom Y-axis label
+                            margin={ "top": 30, "right": 0, "left":20, "bottom": 14},
+                            color={
+                                    "resolved": "#10b95d",
+                                    "pending": "#3B82F6",
+                                    "unresolved": "#f65656",
+                                    "partially_resolved": "#767676",
+                                    "not_applicable": "#9ca3af"
+                                },
+                        ))
+
+                    # 1️⃣2️⃣ Value for Money → BAR
+                    if value_for_money:
+                        charts.append(build_chart(
+                            chart_id="value_for_money",
+                            chart_type="bar",
+                            data=value_for_money,
+                            x_key="name",
+                            y_key="value",
+                            title="Value for Money",
+                            tooltip="Perceived value assessment",
+                            icon="bi-cash",
+                            layout="horizontal",
+                            color = {
+                                "very_poor": "#f65656",
+                                "poor": "#f97316",
+                                "fair": "#eab308",
+                                "good": "#10b95d",
+                                "excellent": "#16a34a",
+                                "not_applicable": "#767676",
+                            },
+                            height=300,
+                            x_label="Values",    
+                            y_label="Count" ,
+                            margin={ "top": 30, "right": 0, "left":20, "bottom": 14}
+                        ))
+
+                    # 1️⃣3️⃣ Churn Risk → PIE
+                    if churn_risk:
+                        charts.append(build_chart(
+                            chart_id="churn_risk",
+                            chart_type="pie",
+                            data=churn_risk,
+                            x_key="name",
+                            y_key="value",
+                            title="Churn Risk",
+                            tooltip="Customer churn risk levels",
+                            icon="bi-exclamation-circle",
+                            color={
+                                "high": "#f65656",
+                                "medium": "#eab308",
+                                "low": "#10b95d",
+                                "not_applicable": "#9ca3af",
+                            },
+                            height=280
+                            # Pie charts don't need axis labels
+                        ))
+
+                    # Prepare top advocates/detractors for frontend
+                    top_advocates_data = top_advocates if top_advocates else []
+                    top_detractors_data = top_detractors if top_detractors else []
+
                     print(f"\n===== DASHBOARD RESPONSE =====")
                     print(f"Cards: {cards}")
-                    print(f"Daily sentiment days: {len(daily_sentiment)}")
-                    print(f"Rating distribution: {len(rating_distribution)}")
-                    print(f"Score trend days: {len(sentiment_score_trend)}")
+                    print(f"Charts built: {len(charts)}")
                     print(f"Word cloud words: {len(top_words)}")
                     print(f"Hashtags: {len(top_hashtags)}")
                     print("==============================\n")
 
                     return Response({
                         "cards": cards,
-                        "daily_sentiment": daily_sentiment,
-                        "rating_distribution": rating_distribution,
-                        "sentiment_score_trend": sentiment_score_trend,
+                        "charts": charts,
                         "wordcloud": top_words,
                         "top_hashtags": top_hashtags,
-                        
-                        # Audience Data
-                        "language_distribution": language_distribution,
-                        "gender_distribution": gender_distribution,
-                        "top_advocates": top_advocates,
-                        "top_detractors": top_detractors,
-                        "activity_by_hour": activity_by_hour,
-                        "activity_by_day": activity_by_day,
-                        
-                        # Topic & Metrics Data
-                        "primary_mentions": primary_mentions,
-                        "issue_type_distribution": issue_type_distribution,
-                        "journey_sentiment": journey_sentiment,
-                        "resolution_status": resolution_status,
-                        "value_for_money": value_for_money,
-                        "churn_risk": churn_risk,
+                        "top_advocates": top_advocates_data,
+                        "top_detractors": top_detractors_data,
                     })
 
         except Exception as e:
@@ -1255,7 +1524,7 @@ class SocialMediaDailyView(APIView):
                 },
                 status=500
             )
-        
+
 
 
 

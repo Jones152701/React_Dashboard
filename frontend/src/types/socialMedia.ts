@@ -1,27 +1,31 @@
+export interface ChartConfig {
+  xKey: string;
+  yLabel?: string;
+  layout?: "horizontal" | "vertical";
+  stacked?: boolean;
+  series?: { key: string; color?: string }[];
+}
+
+export interface ChartResponse {
+  id: string;
+  title: string;
+  type: "bar" | "pie" | "area"; // add "treemap" if needed
+  tooltip?: string;
+  icon?: string;
+  data: any[];
+  config: ChartConfig;
+}
+
 export interface SocialMediaResponse {
-  // Sentiment tab data
   cards: any;
-  daily_sentiment: any[];
-  rating_distribution: any[];
-  sentiment_score_trend: any[];
+
+  // ✅ ADD THIS
+  charts: ChartResponse[];
+
+  // existing fields
   wordcloud: Record<string, number>;
   top_hashtags: Record<string, number>;
 
-  // Audience tab data
-  language_distribution: any[];
-  gender_distribution: any[];
-  top_advocates: any[];
-  top_detractors: any[];
-  activity_by_hour: any[];
-  activity_by_day: any[];
-
-  // AI Insights tab data
-  primary_mentions: any[];
-  issue_type_distribution: any[];
-  journey_sentiment: any[];
-  resolution_status: any[];
-  value_for_money: any[];
-  churn_risk: any[];
-  
-
+  top_advocates?: any[];
+  top_detractors?: any[];
 }

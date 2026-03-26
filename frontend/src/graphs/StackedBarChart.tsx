@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -12,30 +12,40 @@ import {
 
 /* ================= TYPES ================= */
 
-interface AreaConfig {
+interface StackedBarConfig {
   xKey: string;
-  yKey?: string;
-  areas: {
+
+  bars: {
     key: string;
+    name?: string;
     color?: string;
+    stackId: string;
+    radius?: [number, number, number, number];
   }[];
+
+  layout?: "horizontal" | "vertical";
+  showGrid?: boolean;
+
   xLabel?: string;
   yLabel?: string;
+
   margin?: {
     top?: number;
     right?: number;
     left?: number;
     bottom?: number;
   };
+
   xLabelOffset?: number;
   yLabelOffset?: number;
+
   height?: number;
   isDate?: boolean;
 }
 
 interface Props {
   data: any[];
-  config: AreaConfig;
+  config: StackedBarConfig;
 }
 
 /* ================= DATE FORMATTER ================= */
@@ -63,13 +73,14 @@ const isDateValue = (value: any): boolean => {
 
   if (typeof value === 'string') {
     const date = new Date(value);
-    return !isNaN(date.getTime()) && value.match(/^\d{4}-\d{2}-\d{2}/) !== null;
+    return !isNaN(date.getTime()) &&
+      value.match(/^\d{4}-\d{2}-\d{2}/) !== null;
   }
 
   return false;
 };
 
-/* ================= FORMATTER ================= */
+/* ================= FORMATTERS ================= */
 
 const formatXAxis = (value: any, isDate: boolean = false): string => {
   if (!value) return "";
@@ -80,6 +91,13 @@ const formatXAxis = (value: any, isDate: boolean = false): string => {
     return formatDate(value, false);
   }
 
+  return String(value)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+const formatLabel = (value: any): string => {
+  if (value === null || value === undefined) return "";
   return String(value)
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -106,10 +124,12 @@ const EmptyState: React.FC<{ height: number }> = ({ height }) => (
 
 /* ================= COMPONENT ================= */
 
-const GenericAreaChart: React.FC<Props> = ({ data, config }) => {
+const StackedBarChart: React.FC<Props> = ({ data, config }) => {
   const {
     xKey,
-    areas = [],
+    bars = [],
+    layout = "horizontal",
+    showGrid = true,
     xLabel,
     yLabel,
     margin = { top: 20, right: 10, left: 20, bottom: 30 },
@@ -124,16 +144,25 @@ const GenericAreaChart: React.FC<Props> = ({ data, config }) => {
     return <EmptyState height={configHeight} />;
   }
 
-  if (!areas || areas.length === 0) {
-    console.warn("GenericAreaChart: areas config required");
+  if (!bars || bars.length === 0) {
+    console.warn("StackedBarChart: bars config required");
     return null;
   }
 
+  const isVertical = layout === "vertical";
+
   /* ✅ Dynamic Height Calculation */
   const computedHeight = useMemo(() => {
+    // 1. Backend override (highest priority)
     if (configHeight) return configHeight;
+
+    // 2. Dynamic fallback based on layout and data
+    if (isVertical) {
+      return Math.max(320, Math.min(600, data.length * 40));
+    }
+
     return 320;
-  }, [configHeight]);
+  }, [configHeight, isVertical, data.length]);
 
   /* ✅ Tooltip Formatter */
   const tooltipLabelFormatter = useMemo(() => {
@@ -149,31 +178,49 @@ const GenericAreaChart: React.FC<Props> = ({ data, config }) => {
 
   return (
     <ResponsiveContainer width="100%" height={computedHeight}>
-      <AreaChart data={data} margin={margin}>
-        {/* Grid */}
-        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+      <BarChart
+        data={data}
+        layout={isVertical ? "vertical" : "horizontal"}
+        margin={margin}
+      >
+        {/* Grid - FIXED for both orientations */}
+        {showGrid && (
+          <CartesianGrid
+            strokeDasharray="3 3"
+            vertical={isVertical}  // Vertical lines for horizontal layout
+            horizontal={!isVertical}  // Horizontal lines for vertical layout
+          />
+        )}
 
         {/* X Axis */}
         <XAxis
-          dataKey={xKey}
+          type={isVertical ? "number" : "category"}
+          dataKey={!isVertical ? xKey : undefined}
           tick={{ fontSize: 11 }}
           tickFormatter={(val) => formatXAxis(val, isDate)}
           axisLine={false}
           tickLine={false}
         >
           {xLabel && (
-            <Label
-              value={xLabel}
-              position="insideBottom"
-              offset={xLabelOffset}
-              fill="#4d4747"
-            />
+            <Label value={xLabel} position="insideBottom" offset={xLabelOffset} fill="#4d4747"/>
           )}
         </XAxis>
 
         {/* Y Axis */}
         <YAxis
+          type={isVertical ? "category" : "number"}
+          dataKey={isVertical ? xKey : undefined}
+          width={isVertical ? 120 : undefined}
           tick={{ fontSize: 11 }}
+          tickFormatter={(val) => {
+            if (isVertical) {
+              const shouldFormatAsDate = isDate || isDateValue(val);
+              if (shouldFormatAsDate) {
+                return formatDate(val, false);
+              }
+            }
+            return formatLabel(val);
+          }}
           axisLine={false}
           tickLine={false}
         >
@@ -191,22 +238,19 @@ const GenericAreaChart: React.FC<Props> = ({ data, config }) => {
         {/* Tooltip */}
         <Tooltip labelFormatter={tooltipLabelFormatter} />
 
-        {/* Areas */}
-        {areas.map((area, i) => (
-          <Area
-            key={i}
-            type="monotone"
-            dataKey={area.key}
-            stroke={area.color || "#7B61FF"}
-            fill={area.color || "#7B61FF"}
-            fillOpacity={0.2}
-            strokeWidth={2}
-            dot={{ r: 2 }}
+        {/* Multiple Bars (Stacked Only) */}
+        {bars.map((bar, index) => (
+          <Bar
+            key={index}
+            dataKey={bar.key}
+            stackId={bar.stackId}
+            fill={bar.color || "#7B61FF"}
+            radius={bar.radius}
           />
         ))}
-      </AreaChart>
+      </BarChart>
     </ResponsiveContainer>
   );
 };
 
-export default GenericAreaChart;
+export default StackedBarChart;

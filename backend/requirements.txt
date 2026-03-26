@@ -1,0 +1,10 @@
+Django==5.1.14
+djangorestframework==3.16.1
+djangorestframework-simplejwt==5.5.1
+python-dotenv==1.2.1
+requests==2.32.5
+psycopg2-binary==2.9.11
+boto3==1.40.72
+pandas==2.3.3
+redshift-connector==2.1.9
+django-redshift-backend== 5.0.0
