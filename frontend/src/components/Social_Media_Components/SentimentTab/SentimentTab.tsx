@@ -54,6 +54,20 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
 
   /* ---------------- CARDS ---------------- */
   const renderCards = () => {
+
+    /* Skeleton cards when loading and no data yet */
+    if (loading && !data?.cards) {
+      return (
+        <div className="row g-3 mb-4">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div className="col" key={`skel-card-${i}`}>
+              <Cards title="" count="" percentage={0} arrow={null} loading={true} />
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     if (!data?.cards) return null;
 
     const cards = data.cards;
@@ -61,23 +75,23 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
     return (
       <div className="row g-3 mb-4">
         <div className="col">
-          <Cards title="Reviews" count={cards.total_reviews_card?.count?.toLocaleString() || "0"} percentage={cards.total_reviews_card?.trend?.value || 0} arrow={getTrendSVG(cards.total_reviews_card?.trend?.value || 0)} />
+          <Cards title="Reviews" count={cards.total_reviews_card?.count?.toLocaleString() || "0"} percentage={cards.total_reviews_card?.trend?.value || 0} arrow={getTrendSVG(cards.total_reviews_card?.trend?.value || 0)} loading={loading} />
         </div>
 
         <div className="col">
-          <Cards title="Positive" count={cards.positive_card?.count?.toLocaleString() || "0"} percentage={cards.positive_card?.trend?.value || 0} arrow={getTrendSVG(cards.positive_card?.trend?.value || 0)} />
+          <Cards title="Positive" count={cards.positive_card?.count?.toLocaleString() || "0"} percentage={cards.positive_card?.trend?.value || 0} arrow={getTrendSVG(cards.positive_card?.trend?.value || 0)} loading={loading} />
         </div>
 
         <div className="col">
-          <Cards title="Neutral" count={cards.neutral_card?.count?.toLocaleString() || "0"} percentage={cards.neutral_card?.trend?.value || 0} arrow={getTrendSVG(cards.neutral_card?.trend?.value || 0)} />
+          <Cards title="Neutral" count={cards.neutral_card?.count?.toLocaleString() || "0"} percentage={cards.neutral_card?.trend?.value || 0} arrow={getTrendSVG(cards.neutral_card?.trend?.value || 0)} loading={loading} />
         </div>
 
         <div className="col">
-          <Cards title="Negative" count={cards.negative_card?.count?.toLocaleString() || "0"} percentage={cards.negative_card?.trend?.value || 0} arrow={getTrendSVG(cards.negative_card?.trend?.value || 0)} />
+          <Cards title="Negative" count={cards.negative_card?.count?.toLocaleString() || "0"} percentage={cards.negative_card?.trend?.value || 0} arrow={getTrendSVG(cards.negative_card?.trend?.value || 0)} loading={loading} />
         </div>
 
         <div className="col">
-          <Cards title="Avg Rating" count={`${(cards.avg_rating_card?.value || 0).toFixed(1)} /5`} percentage={cards.avg_rating_card?.trend?.value || 0} arrow={getTrendSVG(cards.avg_rating_card?.trend?.value || 0)} />
+          <Cards title="Avg Rating" count={`${(cards.avg_rating_card?.value || 0).toFixed(1)} /5`} percentage={cards.avg_rating_card?.trend?.value || 0} arrow={getTrendSVG(cards.avg_rating_card?.trend?.value || 0)} loading={loading} />
         </div>
       </div>
     );

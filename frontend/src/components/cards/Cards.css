@@ -1,0 +1,62 @@
+/* ── KPI Card Skeleton ── */
+
+.card-skeleton-wrap {
+  position: relative;
+  overflow: hidden;
+  min-height: 88px;
+}
+
+.card-skel-title {
+  width: 70%;
+  height: 12px;
+  border-radius: 6px;
+  background: #e9ebf0;
+  margin-bottom: 10px;
+}
+
+.card-skel-value {
+  width: 50%;
+  height: 20px;
+  border-radius: 8px;
+  background: #dce0e8;
+  margin-bottom: 10px;
+}
+
+.card-skel-badge {
+  width: 40%;
+  height: 14px;
+  border-radius: 10px;
+  background: #e9ebf0;
+}
+
+.card-skel-trend {
+  width: 56px;
+  height: 34px;
+  border-radius: 8px;
+  background: #e9ebf0;
+}
+
+/* Shimmer sweep */
+
+.card-skel-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 40%,
+    rgba(255, 255, 255, 0.55) 60%,
+    transparent 100%
+  );
+  animation: cardShimmer 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes cardShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

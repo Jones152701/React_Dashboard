@@ -1,4 +1,5 @@
 import React from "react";
+import "./Cards.css";
 
 interface Props {
   title: string;
@@ -7,6 +8,7 @@ interface Props {
   arrow: React.ReactNode;
   highlight?: "green" | "red" | "default";
   showStars?: boolean;
+  loading?: boolean;
 }
 
 const Cards: React.FC<Props> = ({
@@ -16,6 +18,7 @@ const Cards: React.FC<Props> = ({
   arrow,
   highlight = "default",
   showStars = false,
+  loading = false,
 }) => {
   const isPositive = percentage > 0;
   const isNegative = percentage < 0;
@@ -45,6 +48,37 @@ const Cards: React.FC<Props> = ({
       </div>
     );
   };
+
+  /* ── Skeleton state ── */
+
+  if (loading) {
+    return (
+      <div className="h-100 shadow-sm rounded-3 bg-white" style={{ cursor: "default" }}>
+        <div className="d-flex align-items-center p-3 card-skeleton-wrap">
+
+          {/* LEFT */}
+          <div style={{ flex: "0 0 60%" }} className="pe-2">
+            <div className="card-skel-title"></div>
+            <div className="card-skel-value"></div>
+            <div className="card-skel-badge"></div>
+          </div>
+
+          {/* RIGHT — trend line placeholder */}
+          <div
+            style={{ flex: "0 0 40%" }}
+            className="d-flex justify-content-end align-items-center ps-2"
+          >
+            <div className="card-skel-trend"></div>
+          </div>
+
+          {/* Shimmer */}
+          <div className="card-skel-shimmer"></div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Normal state ── */
 
   return (
     <div className="h-100 shadow-sm rounded-3 bg-white" style={{ cursor: "pointer" }}>
@@ -103,4 +137,4 @@ const Cards: React.FC<Props> = ({
   );
 };
 
-export default Cards;
+export default Cards;

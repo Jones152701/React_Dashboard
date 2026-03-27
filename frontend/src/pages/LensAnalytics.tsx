@@ -182,6 +182,19 @@ const LenAnalytics: React.FC = () => {
         <div className="chart-container">
 
           {/* ================= KPI CARDS ================= */}
+
+          {/* Skeleton cards during initial load */}
+          {loading && !cards && (
+            <div className="row g-3 mb-4 mt-1">
+              {[1, 2, 3, 4].map((i) => (
+                <div className="col-12 col-md-6 col-xl" key={`skel-card-${i}`}>
+                  <Cards title="" count="" percentage={0} arrow={null} loading={true} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Actual cards once data arrives */}
           {cards && (
             <div className="row g-3 mb-4 mt-1">
               <div className="col-12 col-md-6 col-xl">
@@ -190,6 +203,7 @@ const LenAnalytics: React.FC = () => {
                   count={formatNumber(cards.unique_users.value)}
                   percentage={cards.unique_users.trend.value}
                   arrow={getTrendSVG(cards.unique_users.trend.value)}
+                  loading={loading}
                 />
               </div>
 
@@ -199,6 +213,7 @@ const LenAnalytics: React.FC = () => {
                   count={formatNumber(cards.total_messages.value)}
                   percentage={cards.total_messages.trend.value}
                   arrow={getTrendSVG(cards.total_messages.trend.value)}
+                  loading={loading}
                 />
               </div>
 
@@ -208,24 +223,46 @@ const LenAnalytics: React.FC = () => {
                   count={Number(cards.avg_messages_per_user.value).toFixed(2)}
                   percentage={cards.avg_messages_per_user.trend.value}
                   arrow={getTrendSVG(cards.avg_messages_per_user.trend.value)}
+                  loading={loading}
                 />
               </div>
 
               <div className="col-12 col-md-6 col-xl">
-                <div className="h-100 shadow-sm rounded-3 bg-white p-3">
-                  <div className="h6 mb-1 text-gray-600">
-                    Top User
+                {loading ? (
+                  <Cards title="" count="" percentage={0} arrow={null} loading={true} />
+                ) : (
+                  <div className="h-100 shadow-sm rounded-3 bg-white p-3">
+                    <div className="h6 mb-1 text-gray-600">
+                      Top User
+                    </div>
+                    <div className="h5 fw-bold mb-1">
+                      {cards.top_user.value}
+                    </div>
+                    <div className="text-muted">
+                      {cards.top_user.count?.toLocaleString()} messages
+                    </div>
                   </div>
-                  <div className="h5 fw-bold mb-1">
-                    {cards.top_user.value}
-                  </div>
-                  <div className="text-muted">
-                    {cards.top_user.count?.toLocaleString()} messages
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           )}
+          {/* Show placeholder skeleton cards during initial load */}
+          {loading && charts.filter((c) => c.id !== "user_daily").length === 0 && (
+            <>
+              {["bar", "bar", "pie", "area"].map((type, i) => (
+                <ChartCard
+                  key={`skel-${i}`}
+                  title=""
+                  loading={true}
+                  skeletonType={type}
+                >
+                  <></>
+                </ChartCard>
+              ))}
+            </>
+          )}
+
+          {/* Actual charts */}
           {charts
             .filter((chart) => chart.id !== "user_daily")
             .map((chart, index) => (
@@ -235,6 +272,7 @@ const LenAnalytics: React.FC = () => {
                 tooltip={chart.tooltip}
                 icon={chart.icon}
                 loading={loading}
+                skeletonType={chart.type}
               >
                 <ChartRenderer chart={chart} />
               </ChartCard>

@@ -1,3 +1,4 @@
+
 .analytics-chart-card {
   background: #ffffff;
   border-radius: 14px;
@@ -119,26 +120,101 @@
   min-height: 320px;
 }
 
-/* Loader */
+/* ── Skeleton Loader ── */
 
-.chart-loader {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.skeleton-container {
+  position: relative;
+  overflow: hidden;
   height: 100%;
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid #e5e7eb;
-  border-top: 3px solid #7B61FF;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+/* Title skeleton pill */
+
+.skeleton-title-pill {
+  width: 160px;
+  height: 18px;
+  border-radius: 8px;
+  background: #e9ebf0;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+/* SVG takes full card area */
+
+.skeleton-svg {
+  width: 100%;
+  height: 260px;
+}
+
+/* Fills & strokes for skeleton elements */
+
+.skeleton-fill {
+  fill: #e5e8ee;
+}
+
+.skeleton-bar-fill {
+  fill: #dce0e8;
+}
+
+.skeleton-grid {
+  stroke: #f0f1f4;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.skeleton-axis {
+  stroke: #dce0e8;
+  stroke-width: 1.5;
+}
+
+/* Pie / Donut */
+
+.skeleton-ring {
+  fill: #e5e8ee;
+}
+
+.skeleton-slice {
+  stroke: #ffffff;
+  stroke-width: 2.5;
+}
+
+/* Area chart */
+
+.skeleton-area-fill {
+  fill: #eceef3;
+  opacity: 0.7;
+}
+
+.skeleton-area-line {
+  fill: none;
+  stroke: #dce0e8;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+/* Shimmer sweep */
+
+.skeleton-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 40%,
+    rgba(255, 255, 255, 0.5) 60%,
+    transparent 100%
+  );
+  animation: shimmer 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
   }
 }
