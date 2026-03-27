@@ -62,7 +62,23 @@ body {
   z-index: 10 !important;
 }
 
+.blur-overlay {
+  position: fixed;
+  inset: 0;
 
+  backdrop-filter: blur(4px);   /* ✅ REAL blur */
+  -webkit-backdrop-filter: blur(4px);
+
+  background: rgba(0,0,0,0.1); /* optional dim */
+
+  z-index: 4000;
+}
+
+/* BUT remove blur for drilldown */
+.drilldown-container {
+  filter: none !important;
+  pointer-events: auto;
+}
 
 /* tablet */
 @media (max-width: 1024px) {

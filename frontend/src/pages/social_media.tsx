@@ -110,7 +110,7 @@ function SocialMedia() {
     try {
       // ✅ STEP 1: Use the key directly from the chart (no mapping needed)
       // Charts already send the correct drillKey from their config
-      
+
       const drillKey = event.key;
       const drillValue = event.value;
 
@@ -198,48 +198,50 @@ function SocialMedia() {
 
   return (
     <>
-      <Header />
-      <Navbar />
+      <div className={`app-layout ${drill.open ? "sidebar-open" : ""}`}>
+        <Header />
+        <Navbar />
 
-      <div className="page-wrap">
-        <SubHeader onFiltersChange={setFilters} />
+        <div className="page-wrap">
+          <SubHeader onFiltersChange={setFilters} />
 
-        <div className="analytics-content">
-          {/* TABS */}
-          <SocialMediaTabs
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-          />
-
-          {activeTab === "sentiment" && (
-            <SocialMediaChart
-              data={dashboardData}
-              loading={loading}
-              onDrillDown={handleDrillDown}
+          <div className="analytics-content">
+            {/* TABS */}
+            <SocialMediaTabs
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
             />
-          )}
 
-          {activeTab === "reviews" && (
-            <ReviewTab
-              filters={filters}
-            />
-          )}
+            {activeTab === "sentiment" && (
+              <SocialMediaChart
+                data={dashboardData}
+                loading={loading}
+                onDrillDown={handleDrillDown}
+              />
+            )}
 
-          {activeTab === "audience" && (
-            <AudienceTab
-              data={dashboardData}
-              loading={loading}
-              onDrillDown={handleDrillDown}
-            />
-          )}
+            {activeTab === "reviews" && (
+              <ReviewTab
+                filters={filters}
+              />
+            )}
 
-          {activeTab === "ai" && (
-            <AiInsightsTab
-              data={dashboardData}
-              loading={loading}
-              onDrillDown={handleDrillDown}
-            />
-          )}
+            {activeTab === "audience" && (
+              <AudienceTab
+                data={dashboardData}
+                loading={loading}
+                onDrillDown={handleDrillDown}
+              />
+            )}
+
+            {activeTab === "ai" && (
+              <AiInsightsTab
+                data={dashboardData}
+                loading={loading}
+                onDrillDown={handleDrillDown}
+              />
+            )}
+          </div>
         </div>
       </div>
 
