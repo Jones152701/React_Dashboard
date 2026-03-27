@@ -27,14 +27,14 @@
   top: 0;
   right: 0;
   height: 100vh;
-  width: 50%; /* or your width */
+ 
 
   z-index: 5000; /* 🔥 MUST be highest */
 }
 /* ================= SIDEBAR ================= */
 .drilldown-sidebar {
-  width: 40%;
-  max-width: 40%;
+  width: 50%;
+  max-width: 60%;
   /* min-width: 380px; */
   height: 100vh;
   background: #ffffff;
@@ -189,7 +189,7 @@
 .drilldown-chart-title {
   margin: 0;
   padding: 16px 20px 12px 20px;
-  font-size: 1rem;
+  font-size: 18px;
   font-weight: 600;
   color: #374151;
   border-bottom: 1px solid #e5e7eb;
@@ -343,4 +343,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+
+.drilldown-chart-icon {
+  font-size: 20px;
+  color: #6366F1; /* ✅ Updated color */
 }
