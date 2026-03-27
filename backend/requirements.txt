@@ -8,3 +8,5 @@ boto3==1.40.72
 pandas==2.3.3
 redshift-connector==2.1.9
 django-redshift-backend== 5.0.0
+django-cors-headers==4.7.0
+gunicorn==21.2.0

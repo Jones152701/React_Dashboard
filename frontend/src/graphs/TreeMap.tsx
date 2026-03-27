@@ -7,22 +7,29 @@ import {
 
 /* ================= TYPES ================= */
 
-// ✅ Updated with index signature to match Recharts expectations
+export interface DrillEvent {
+  type: "bar" | "area" | "pie" | "word" | "treemap";
+  key: string;
+  value: any;
+  data: any;
+}
+
 export interface TreemapNode {
   name: string;
   value: number;
   children?: TreemapNode[];
-  [key: string]: any; // ✅ Allows additional properties like index, percentage, etc.
+  [key: string]: any;
 }
 
 interface TreemapConfig {
   dataKey: string;
   nameKey?: string;
+  drillKey?: string;  // ✅ ADDED
   aspectRatio?: number;
   stroke?: string;
   strokeWidth?: number;
-  colors?: string[];           // Array of colors (alternating)
-  colorsMap?: Record<string, string>;  // Semantic mapping
+  colors?: string[];
+  colorsMap?: Record<string, string>;
   showTooltip?: boolean;
   showValues?: boolean;
   height?: number;
@@ -32,35 +39,27 @@ interface TreemapConfig {
 interface Props {
   data: TreemapNode[];
   config: TreemapConfig;
+  onDrillDown?: (event: DrillEvent) => void;
+  selectedValue?: any;
+  drillKey?: string;  // ✅ ADDED
 }
 
 /* ================= UTILITIES ================= */
 
-/**
- * Calculate text color based on background brightness
- * Returns black (#000) for light backgrounds, white (#fff) for dark backgrounds
- */
 const getTextColor = (bgColor: string): string => {
   if (!bgColor) return "#000";
 
-  // Remove the # if present
   const color = bgColor.replace("#", "");
   
-  // Parse RGB values
   const r = parseInt(color.substring(0, 2), 16);
   const g = parseInt(color.substring(2, 4), 16);
   const b = parseInt(color.substring(4, 6), 16);
   
-  // Calculate brightness using perceived luminance formula
   const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   
-  // Return black for bright backgrounds, white for dark backgrounds
-  return brightness > 100 ? "#000" : "#000";
+  return brightness > 100 ? "#000" : "#fff";
 };
 
-/**
- * Truncate text to prevent overflow
- */
 const truncateText = (text: string, maxLength: number = 15): string => {
   if (!text) return "";
   return text.length > maxLength ? text.slice(0, maxLength) + "…" : text;
@@ -80,21 +79,24 @@ const getTreemapColor = (
   index: number,
   nameKey: string,
   colors?: string[],
-  colorsMap?: Record<string, string>
+  colorsMap?: Record<string, string>,
+  selectedValue?: any
 ): string => {
   const key = String(entry?.[nameKey] || "").toLowerCase().trim();
+  const isSelected = selectedValue !== undefined && entry?.[nameKey] === selectedValue;
 
-  // 1. Highest priority: semantic mapping (colorsMap)
+  if (isSelected) {
+    return "#111827";
+  }
+
   if (colorsMap && colorsMap[key]) {
     return colorsMap[key];
   }
 
-  // 2. Second priority: array of colors (alternating)
   if (colors && colors.length > 0) {
     return colors[index % colors.length];
   }
 
-  // 3. Default color
   return "#7B61FF";
 };
 
@@ -110,17 +112,17 @@ interface ContentProps {
   value: number;
   depth?: number;
   payload?: any;
-}
-
-type ExtendedContentProps = ContentProps & {
-  colors?: string[];
-  colorsMap?: Record<string, string>;
+  onDrillDown?: (event: DrillEvent) => void;
   nameKey?: string;
   showValues?: boolean;
   borderRadius?: number;
-};
+  colors?: string[];
+  colorsMap?: Record<string, string>;
+  selectedValue?: any;
+  drillKey?: string;  // ✅ ADDED
+}
 
-const CustomizedContent: React.FC<ExtendedContentProps> = ({
+const CustomizedContent: React.FC<ContentProps> = ({
   x,
   y,
   width,
@@ -129,27 +131,47 @@ const CustomizedContent: React.FC<ExtendedContentProps> = ({
   name,
   value,
   payload,
-  colors = [],
-  colorsMap,
+  onDrillDown,
   nameKey = "name",
   showValues = false,
-  borderRadius = 4
+  borderRadius = 4,
+  colors = [],
+  colorsMap,
+  selectedValue,
+  drillKey  // ✅ ADDED
 }) => {
-  // Get color using the enhanced helper
   const color = getTreemapColor(
     payload || { [nameKey]: name, value },
     index,
     nameKey,
     colors,
-    colorsMap
+    colorsMap,
+    selectedValue
   );
   
-  // ✅ Dynamic text color based on background brightness
   const textColor = getTextColor(color);
-  
-  // ✅ Truncate long names
   const displayName = truncateText(formatLabel(name), 20);
   const displayValue = truncateText(String(value), 10);
+
+  // ✅ FIXED click handler
+  const handleClick = () => {
+    if (!onDrillDown) return;
+
+    const finalKey = drillKey || nameKey;
+
+    console.log("TREEMAP DRILL EVENT:", {
+      finalKey,
+      value: payload?.[nameKey] || name,
+      type: "treemap"
+    });
+
+    onDrillDown({
+      type: "treemap",
+      key: finalKey,   // ✅ FIXED - uses drillKey instead of nameKey
+      value: payload?.[nameKey] || name,
+      data: payload || { [nameKey]: name, value },
+    });
+  };
 
   return (
     <g>
@@ -163,9 +185,10 @@ const CustomizedContent: React.FC<ExtendedContentProps> = ({
         strokeWidth={2}
         rx={borderRadius}
         ry={borderRadius}
+        style={{ cursor: onDrillDown ? "pointer" : "default" }}
+        onClick={handleClick}
       />
 
-      {/* Name - with dynamic color */}
       {width > 60 && height > 30 && (
         <text
           x={x + width / 2}
@@ -183,7 +206,6 @@ const CustomizedContent: React.FC<ExtendedContentProps> = ({
         </text>
       )}
 
-      {/* Value - with dynamic color */}
       {showValues && width > 60 && height > 40 && (
         <text
           x={x + width / 2}
@@ -225,10 +247,20 @@ const EmptyState: React.FC<{ height: number }> = ({ height }) => (
 
 /* ================= COMPONENT ================= */
 
-const GenericTreemap: React.FC<Props> = ({ data, config }) => {
+const GenericTreemap: React.FC<Props> = ({ 
+  data, 
+  config, 
+  onDrillDown, 
+  selectedValue,
+  drillKey  // ✅ ADDED
+}) => {
+  // ✅ DEBUG: Log the config to verify drillKey is being passed
+  console.log("TREEMAP CONFIG:", config);
+
   const {
     dataKey,
     nameKey = "name",
+    drillKey: configDrillKey,  // ✅ ADDED
     aspectRatio = 4 / 3,
     stroke = "#fff",
     colors = [],
@@ -239,36 +271,37 @@ const GenericTreemap: React.FC<Props> = ({ data, config }) => {
     borderRadius = 4
   } = config;
 
-  // Validation
+  // ✅ Determine which drill key to use (prop > config > nameKey)
+  const finalDrillKey = drillKey || configDrillKey || nameKey;
+  
+  // ✅ DEBUG: Log the final drill key being used
+  console.log("Final treemap drill key:", finalDrillKey);
+
   if (!data || data.length === 0) {
     return <EmptyState height={configHeight} />;
   }
 
-  /* ✅ Dynamic Height Calculation */
   const computedHeight = useMemo(() => {
     if (configHeight) return configHeight;
     return 320;
   }, [configHeight]);
 
-  /* ✅ Format data for treemap with indices and percentages */
   const treemapData = useMemo(() => {
     const total = data.reduce((sum, item) => sum + (item.value || 0), 0);
     
     return data.map((item, index) => ({
       ...item,
-      index, // Store index for color mapping
+      index,
       [nameKey]: item[nameKey as keyof typeof item] || item.name,
       percentage: total > 0 ? Math.round((item.value / total) * 100) : 0
     }));
   }, [data, nameKey]);
 
-  /* ✅ Custom tooltip formatter with dynamic colors */
   const tooltipContent = useMemo(() => {
     return ({ active, payload }: any) => {
       if (active && payload && payload.length) {
         const data = payload[0].payload;
-        const color = getTreemapColor(data, data.index, nameKey, colors, colorsMap);
-        
+        const color = getTreemapColor(data, data.index, nameKey, colors, colorsMap, selectedValue);
         
         return (
           <div
@@ -285,7 +318,6 @@ const GenericTreemap: React.FC<Props> = ({ data, config }) => {
               fontWeight: 600, 
               marginBottom: 4, 
               color: color,
-              
               padding: "2px 6px",
               borderRadius: "4px",
               display: "inline-block"
@@ -300,11 +332,10 @@ const GenericTreemap: React.FC<Props> = ({ data, config }) => {
       }
       return null;
     };
-  }, [nameKey, colors, colorsMap]);
+  }, [nameKey, colors, colorsMap, selectedValue]);
 
   return (
     <ResponsiveContainer width="100%" height={computedHeight}>
-      {/* ✅ Using as any to bypass Recharts strict typing */}
       <Treemap
         data={treemapData as any}
         dataKey={dataKey}
@@ -319,6 +350,9 @@ const GenericTreemap: React.FC<Props> = ({ data, config }) => {
             nameKey={nameKey}
             showValues={showValues}
             borderRadius={borderRadius}
+            onDrillDown={onDrillDown}
+            selectedValue={selectedValue}
+            drillKey={finalDrillKey}  // ✅ ADDED - pass the drill key
           />
         )}
       >

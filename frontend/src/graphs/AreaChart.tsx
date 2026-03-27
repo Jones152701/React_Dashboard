@@ -12,6 +12,13 @@ import {
 
 /* ================= TYPES ================= */
 
+export interface DrillEvent {
+  type: "bar" | "area" | "pie" | "word" | "treemap";
+  key: string;
+  value: any;
+  data: any;
+}
+
 interface AreaConfig {
   xKey: string;
   yKey?: string;
@@ -36,6 +43,9 @@ interface AreaConfig {
 interface Props {
   data: any[];
   config: AreaConfig;
+  onDrillDown?: (event: DrillEvent) => void;
+  drillKey?: string;
+  selectedValue?: any; // Keep it for future use (highlighting)
 }
 
 /* ================= DATE FORMATTER ================= */
@@ -104,9 +114,21 @@ const EmptyState: React.FC<{ height: number }> = ({ height }) => (
   </div>
 );
 
+/* ================= PAYLOAD EXTRACTOR ================= */
+
+const extractPayloadFromEvent = (state: any) => {
+  return state?.activePayload?.[0]?.payload || null;
+};
+
 /* ================= COMPONENT ================= */
 
-const GenericAreaChart: React.FC<Props> = ({ data, config }) => {
+const GenericAreaChart: React.FC<Props> = ({ 
+  data, 
+  config, 
+  onDrillDown, 
+  drillKey, 
+  // selectedValue // Keep for future highlighting implementation
+}) => {
   const {
     xKey,
     areas = [],
@@ -147,9 +169,29 @@ const GenericAreaChart: React.FC<Props> = ({ data, config }) => {
     };
   }, [isDate]);
 
+  /* ✅ Handle Drill Click - Attached to AreaChart for better stability */
+  const handleChartClick = (state: any) => {
+    if (!onDrillDown) return;
+    
+    const payload = extractPayloadFromEvent(state);
+    if (payload) {
+      onDrillDown({
+        type: "area",
+        key: drillKey || xKey,
+        value: payload[xKey],
+        data: payload,
+      });
+    }
+  };
+
   return (
     <ResponsiveContainer width="100%" height={computedHeight}>
-      <AreaChart data={data} margin={margin}>
+      <AreaChart 
+        data={data} 
+        margin={margin}
+        onClick={handleChartClick}
+        style={{ cursor: onDrillDown ? "pointer" : "default" }}
+      >
         {/* Grid */}
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
 
@@ -191,7 +233,7 @@ const GenericAreaChart: React.FC<Props> = ({ data, config }) => {
         {/* Tooltip */}
         <Tooltip labelFormatter={tooltipLabelFormatter} />
 
-        {/* Areas */}
+        {/* Areas - No onClick handlers here, cleaner and more stable */}
         {areas.map((area, i) => (
           <Area
             key={i}

@@ -1,3 +1,5 @@
+// social_media.tsx - Updated drilldown handler
+
 import { useState, useEffect } from "react";
 import Navbar from "../components/navbar/navbar";
 import Header from "../components/header/header";
@@ -7,9 +9,21 @@ import SocialMediaTabs from "../components/Social_Media_Components/SocialMediaTa
 import ReviewTab from "../components/Social_Media_Components/ReviewTab/ReviewTab";
 import AudienceTab from "../components/Social_Media_Components/AudienceTab/AudienceTab";
 import AiInsightsTab from "../components/Social_Media_Components/AIInsightsTab/AIInsightsTab";
+import Drilldown from "../components/Social_Media_Components/drilldown/Drilldown";
 import type { SocialMediaResponse } from "../types/socialMedia";
 
 import "../assets/css/social_media.css";
+
+// Drill State Type
+interface DrillState {
+  open: boolean;
+  loading: boolean;
+  data: any | null;
+  context: {
+    key: string;
+    value: any;
+  } | null;
+}
 
 function SocialMedia() {
   const getLast7Days = (): FilterState => {
@@ -26,7 +40,7 @@ function SocialMedia() {
       countries: ["all"],
       platforms: ["all"],
       sentiments: ["all"],
-      dateRange: "last_7_days", // ✅ REQUIRED FIX
+      dateRange: "last_7_days",
     };
   };
 
@@ -36,6 +50,14 @@ function SocialMedia() {
   // Shared data state for dashboard (charts only, no reviews)
   const [dashboardData, setDashboardData] = useState<SocialMediaResponse | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Drilldown state
+  const [drill, setDrill] = useState<DrillState>({
+    open: false,
+    loading: false,
+    data: null,
+    context: null,
+  });
 
   // Single API call for dashboard data (NO page, NO search)
   useEffect(() => {
@@ -63,7 +85,6 @@ function SocialMedia() {
           params.append("sentiments", filters.sentiments.join(","));
         }
 
-        // IMPORTANT: No page, no search params here!
         console.log("Fetching dashboard data:", `http://localhost:8000/social_media/?${params.toString()}`);
 
         const response = await fetch(
@@ -83,6 +104,98 @@ function SocialMedia() {
     fetchDashboardData();
   }, [filters]);
 
+  /* ---------------- DRILLDOWN HANDLER (FIXED) ---------------- */
+
+  const handleDrillDown = async (event: any) => {
+    try {
+      // ✅ STEP 1: Use the key directly from the chart (no mapping needed)
+      // Charts already send the correct drillKey from their config
+      
+      const drillKey = event.key;
+      const drillValue = event.value;
+
+      console.log("Drill Event:", event);
+      console.log("Using drillKey:", drillKey, "Value:", drillValue);
+
+      // ✅ STEP 2: OPEN SIDEBAR
+      setDrill({
+        open: true,
+        loading: true,
+        data: null,
+        context: {
+          key: drillKey,
+          value: drillValue,
+        },
+      });
+
+      // ✅ STEP 3: BUILD REQUEST
+      const params = new URLSearchParams();
+
+      params.append("type", "drilldown");
+      params.append("drill_key", drillKey);
+      params.append("drill_value", drillValue);
+      params.append("drill_type", event.type);
+
+      // ✅ ADD FILTER CONTEXT
+      params.append("from_date", filters.fromDate);
+      params.append("to_date", filters.toDate);
+
+      if (filters.countries && !filters.countries.includes("all")) {
+        params.append("countries", filters.countries.join(","));
+      }
+
+      if (filters.platforms && !filters.platforms.includes("all")) {
+        params.append("platforms", filters.platforms.join(","));
+      }
+
+      if (filters.sentiments && !filters.sentiments.includes("all")) {
+        params.append("sentiments", filters.sentiments.join(","));
+      }
+
+      // ✅ OPTIONAL EXTRA CONTEXT
+      if (event.data) {
+        params.append("drill_context", JSON.stringify(event.data));
+      }
+
+      const url = `http://localhost:8000/social_media/?${params.toString()}`;
+      console.log("Drilldown API:", url);
+
+      // ✅ STEP 4: FETCH
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      // ✅ STEP 5: UPDATE STATE
+      setDrill((prev) => ({
+        ...prev,
+        loading: false,
+        data: result,
+      }));
+
+    } catch (err) {
+      console.error("Drilldown error:", err);
+
+      setDrill((prev) => ({
+        ...prev,
+        loading: false,
+      }));
+    }
+  };
+
+  /* ---------------- CLOSE DRILLDOWN SIDEBAR ---------------- */
+  const handleCloseDrilldown = () => {
+    setDrill({
+      open: false,
+      loading: false,
+      data: null,
+      context: null,
+    });
+  };
+
   return (
     <>
       <Header />
@@ -99,24 +212,42 @@ function SocialMedia() {
           />
 
           {activeTab === "sentiment" && (
-            <SocialMediaChart data={dashboardData} loading={loading} />
+            <SocialMediaChart
+              data={dashboardData}
+              loading={loading}
+              onDrillDown={handleDrillDown}
+            />
           )}
 
           {activeTab === "reviews" && (
             <ReviewTab
-              filters={filters}  // Pass only filters, not dashboardData
+              filters={filters}
             />
           )}
 
           {activeTab === "audience" && (
-            <AudienceTab data={dashboardData} loading={loading} />
+            <AudienceTab
+              data={dashboardData}
+              loading={loading}
+              onDrillDown={handleDrillDown}
+            />
           )}
 
           {activeTab === "ai" && (
-            <AiInsightsTab data={dashboardData} loading={loading} />
+            <AiInsightsTab
+              data={dashboardData}
+              loading={loading}
+              onDrillDown={handleDrillDown}
+            />
           )}
         </div>
       </div>
+
+      {/* ✅ FIXED: Drilldown Sidebar - pass drill object */}
+      <Drilldown
+        drill={drill}
+        onClose={handleCloseDrilldown}
+      />
     </>
   );
 }

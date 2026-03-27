@@ -1,12 +1,16 @@
 import React from "react";
 import ChartCard from "../ChartCard/ChartCard";
-import ChartRenderer from "../../ChartRender";
+import ChartRenderer from "../../ChartRender"; 
+import type { DrillEvent } from "../../ChartRender"; // ✅ IMPORT TYPE
 import type { SocialMediaResponse } from "../../../types/socialMedia";
 import "./audienceTab.css";
+
+/* ---------------- TYPES ---------------- */
 
 interface Props {
   data: SocialMediaResponse | null;
   loading: boolean;
+  onDrillDown?: (event: DrillEvent) => void; // ✅ ADD THIS
 }
 
 interface UserData {
@@ -14,10 +18,12 @@ interface UserData {
   mentions: number;
 }
 
-const AudienceTab: React.FC<Props> = ({ data, loading }) => {
+/* ---------------- COMPONENT ---------------- */
+
+const AudienceTab: React.FC<Props> = ({ data, loading, onDrillDown }) => {
   const charts = data?.charts || [];
 
-  // Extract specific charts by ID (from backend)
+  /* ---------------- GET CHART ---------------- */
   const getChart = (id: string) => charts.find((c) => c.id === id);
 
   const languageChart = getChart("language_distribution");
@@ -28,7 +34,7 @@ const AudienceTab: React.FC<Props> = ({ data, loading }) => {
   const advocates = data?.top_advocates || [];
   const detractors = data?.top_detractors || [];
 
-  /* ---------------- TABLE RENDERER ---------------- */
+  /* ---------------- TABLE ---------------- */
 
   const renderUserTable = (users: UserData[]) => {
     if (!users.length) {
@@ -37,35 +43,25 @@ const AudienceTab: React.FC<Props> = ({ data, loading }) => {
 
     return (
       <div className="audience-table">
-        {/* Header */}
         <div className="audience-header d-flex">
           <div className="col-user">User</div>
           <div className="col-mentions">Mentions</div>
         </div>
 
-        {/* Rows */}
         {users.map((user, i) => {
-          const firstLetter = user.username
-            ? user.username.charAt(0).toUpperCase()
-            : "?";
+          const firstLetter = user.username?.charAt(0).toUpperCase() || "?";
 
           return (
             <div key={i} className="audience-row d-flex align-items-center">
-              {/* Avatar + Name */}
               <div className="col-user d-flex align-items-center gap-2">
-                <div className="avatar-circle">
-                  {firstLetter}
-                </div>
+                <div className="avatar-circle">{firstLetter}</div>
 
                 <div>
                   <div className="username-text">{user.username}</div>
-                  <div className="text-muted small username-text">
-                    @{user.username}
-                  </div>
+                  <div className="text-muted small">@{user.username}</div>
                 </div>
               </div>
 
-              {/* Mentions */}
               <div className="col-mentions fw-medium">
                 {user.mentions}
               </div>
@@ -76,96 +72,96 @@ const AudienceTab: React.FC<Props> = ({ data, loading }) => {
     );
   };
 
-  /* ---------------- CHART RENDERER HELPER ---------------- */
+  /* ---------------- CHART RENDER ---------------- */
 
-  const renderChart = (chart: any, fallbackTitle: string) => {
-    if (!chart) {
+  const renderChart = (chart: any) => {
+    if (!chart || !chart.data?.length) {
       return <div className="text-center py-4 text-muted">No data</div>;
     }
 
-    // Check if chart has data
-    if (!chart.data || chart.data.length === 0) {
-      return <div className="text-center py-4 text-muted">No data available</div>;
-    }
-
-    return <ChartRenderer chart={chart} />;
+    return (
+      <ChartRenderer
+        chart={chart}
+        onDrillDown={onDrillDown} // ✅ CRITICAL FIX
+      />
+    );
   };
 
-  /* ---------------- MAIN RENDER ---------------- */
+  /* ---------------- RENDER ---------------- */
 
   return (
     <div className="container-fluid">
       <div className="row g-4">
 
-        {/* Language Distribution */}
+        {/* LANGUAGE */}
         <div className="col-12 col-lg-6">
           <ChartCard
             title={languageChart?.title || "Language Distribution"}
-            tooltip={languageChart?.tooltip || "Reviews across different languages"}
-            icon={languageChart?.icon || "bi bi-translate me-2"}
+            tooltip={languageChart?.tooltip}
+            icon={languageChart?.icon || "bi bi-translate"}
             loading={loading}
           >
-            {renderChart(languageChart, "Language Distribution")}
+            {renderChart(languageChart)}
           </ChartCard>
         </div>
 
-        {/* Gender Distribution */}
+        {/* GENDER */}
         <div className="col-12 col-lg-6">
           <ChartCard
             title={genderChart?.title || "Gender Distribution"}
-            tooltip={genderChart?.tooltip || "Customer reviews by gender"}
-            icon={genderChart?.icon || "bi bi-people-fill me-2"}
+            tooltip={genderChart?.tooltip}
+            icon={genderChart?.icon || "bi bi-people-fill"}
             loading={loading}
           >
-            {renderChart(genderChart, "Gender Distribution")}
+            {renderChart(genderChart)}
           </ChartCard>
         </div>
 
-        {/* Top Advocates - Table */}
+        {/* ADVOCATES */}
         <div className="col-12 col-lg-6">
           <ChartCard
             title="Top Advocates"
             tooltip="Users with most positive mentions"
-            icon="bi bi-megaphone-fill text-success me-2"
+            icon="bi bi-megaphone-fill text-success"
             loading={loading}
           >
             {renderUserTable(advocates)}
           </ChartCard>
         </div>
 
-        {/* Top Detractors - Table */}
+        {/* DETRACTORS */}
         <div className="col-12 col-lg-6">
           <ChartCard
             title="Top Detractors"
             tooltip="Users with most negative mentions"
-            icon="bi bi-chat-left-dots-fill text-danger me-2"
+            icon="bi bi-chat-left-dots-fill text-danger"
             loading={loading}
           >
             {renderUserTable(detractors)}
           </ChartCard>
         </div>
 
-        {/* Activity by Hour */}
+        {/* ACTIVITY BY HOUR */}
         <div className="col-12 col-lg-6">
           <ChartCard
             title={activityHourChart?.title || "Activity by Hour"}
-            tooltip={activityHourChart?.tooltip || "Review distribution across hours"}
-            icon={activityHourChart?.icon || "bi bi-clock-fill me-2"}
+            tooltip={activityHourChart?.tooltip}
+            icon={activityHourChart?.icon || "bi bi-clock-fill"}
             loading={loading}
           >
-            {renderChart(activityHourChart, "Activity by Hour")}
+            {renderChart(activityHourChart)}
           </ChartCard>
         </div>
 
-        {/* Activity by Day */}
+        {/* ACTIVITY BY DAY */}
         <div className="col-12 col-lg-6">
           <ChartCard
             title={activityDayChart?.title || "Activity by Day"}
-            tooltip={activityDayChart?.tooltip || "Review distribution across days"}
-            icon={activityDayChart?.icon || "bi bi-calendar-week-fill me-2"}
+            tooltip={activityDayChart?.tooltip}
+            icon={activityDayChart?.icon || "bi bi-calendar-week-fill"}
             loading={loading}
           >
-            {renderChart(activityDayChart, "Activity by Day")}
+            {renderChart(activityDayChart)}
           </ChartCard>
         </div>
 

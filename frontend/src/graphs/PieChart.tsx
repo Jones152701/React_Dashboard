@@ -9,9 +9,17 @@ import {
 
 /* ================= TYPES ================= */
 
+export interface DrillEvent {
+  type: "bar" | "area" | "pie" | "word" | "treemap";
+  key: string;
+  value: any;
+  data: any;
+}
+
 interface PieConfig {
   nameKey?: string;
   dataKey?: string;
+  drillKey?: string;  // ✅ ADDED
   outerRadius?: number;
   innerRadius?: number;
   colors?: string[];
@@ -24,6 +32,9 @@ interface PieConfig {
 interface Props {
   data: any[];
   config: PieConfig;
+  onDrillDown?: (event: DrillEvent) => void;
+  selectedValue?: any;
+  drillKey?: string;  // ✅ ADDED
 }
 
 /* ================= CONSTANTS ================= */
@@ -69,10 +80,20 @@ const EmptyState: React.FC<{ height: number }> = ({ height }) => (
 
 /* ================= COMPONENT ================= */
 
-const GenericPieChart: React.FC<Props> = ({ data, config }) => {
+const GenericPieChart: React.FC<Props> = ({ 
+  data, 
+  config, 
+  onDrillDown, 
+  selectedValue,
+  drillKey
+}) => {
+  // ✅ DEBUG: Log the config to verify drillKey is being passed
+  console.log("PIE CONFIG:", config);
+
   const {
     nameKey = "name",
     dataKey = "value",
+    drillKey: configDrillKey,  // ✅ ADDED
     outerRadius = 100,
     innerRadius = 0,
     colors,
@@ -82,24 +103,33 @@ const GenericPieChart: React.FC<Props> = ({ data, config }) => {
     height: configHeight = 280
   } = config;
 
-  // Validation
+  // ✅ Determine which drill key to use (prop > config > nameKey)
+  const finalDrillKey = drillKey || configDrillKey || nameKey;
+  
+  // ✅ DEBUG: Log the final drill key being used
+  console.log("Final drill key:", finalDrillKey);
+
   if (!data || data.length === 0) {
     return <EmptyState height={configHeight} />;
   }
 
   const palette = colors || DEFAULT_COLORS;
 
-  /* ✅ Dynamic Height Calculation */
   const computedHeight = useMemo(() => {
     if (configHeight) return configHeight;
     return 280;
   }, [configHeight]);
 
-  /* ✅ Safe Color Function */
   const getColor = (entry: any, index: number): string => {
     const key = String(entry?.[nameKey] || "")
       .toLowerCase()
       .trim();
+    
+    const isSelected = selectedValue !== undefined && entry?.[nameKey] === selectedValue;
+    
+    if (isSelected) {
+      return "#111827";
+    }
 
     if (colorsMap && colorsMap[key]) {
       return colorsMap[key];
@@ -108,7 +138,6 @@ const GenericPieChart: React.FC<Props> = ({ data, config }) => {
     return palette[index % palette.length];
   };
 
-  /* ✅ Calculate percentages for tooltip */
   const dataWithPercentages = useMemo(() => {
     const total = data.reduce((sum, item) => sum + (item[dataKey] || 0), 0);
     
@@ -118,9 +147,28 @@ const GenericPieChart: React.FC<Props> = ({ data, config }) => {
     }));
   }, [data, dataKey]);
 
+  // ✅ FIXED click handler
+  const handlePieClick = (entry: any) => {
+    if (!onDrillDown) return;
+    
+    // ✅ DEBUG: Log what's being sent in drill event
+    console.log("Pie click drill event:", {
+      type: "pie",
+      key: finalDrillKey,
+      value: entry[nameKey],
+      data: entry
+    });
+    
+    onDrillDown({
+      type: "pie",
+      key: finalDrillKey,  // ✅ CRITICAL FIX - uses drillKey instead of nameKey
+      value: entry[nameKey],  // value still uses the display name
+      data: entry,
+    });
+  };
+
   return (
     <>
-      {/* ================= CHART ================= */}
       <ResponsiveContainer width="100%" height={computedHeight - (showLegend ? 60 : 0)}>
         <PieChart>
           <Pie
@@ -129,10 +177,14 @@ const GenericPieChart: React.FC<Props> = ({ data, config }) => {
             nameKey={nameKey}
             outerRadius={outerRadius}
             innerRadius={innerRadius}
-            label={showPercentage ? undefined : undefined}
           >
             {dataWithPercentages.map((entry, index) => (
-              <Cell key={index} fill={getColor(entry, index)} />
+              <Cell 
+                key={index} 
+                fill={getColor(entry, index)}
+                style={{ cursor: onDrillDown ? "pointer" : "default" }}
+                onClick={() => handlePieClick(entry)}
+              />
             ))}
           </Pie>
 
@@ -150,7 +202,6 @@ const GenericPieChart: React.FC<Props> = ({ data, config }) => {
         </PieChart>
       </ResponsiveContainer>
 
-      {/* ================= LEGEND ================= */}
       {showLegend && (
         <div
           style={{
@@ -161,34 +212,37 @@ const GenericPieChart: React.FC<Props> = ({ data, config }) => {
             flexWrap: "wrap"
           }}
         >
-          {dataWithPercentages.map((entry, index) => (
-            <div
-              key={index}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "14px",
-                fontWeight: 500
-              }}
-            >
-              {/* Dot */}
+          {dataWithPercentages.map((entry, index) => {
+            const isSelected = selectedValue !== undefined && entry[nameKey] === selectedValue;
+            return (
               <div
+                key={index}
                 style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  backgroundColor: getColor(entry, index)
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "14px",
+                  fontWeight: isSelected ? 700 : 500,
+                  cursor: onDrillDown ? "pointer" : "default",
+                  opacity: isSelected ? 1 : 0.8,
                 }}
-              />
-
-              {/* Text */}
-              <span>
-                {formatLabel(entry[nameKey])} - {entry[dataKey]}
-                {showPercentage && entry.percentage !== undefined && ` (${entry.percentage}%)`}
-              </span>
-            </div>
-          ))}
+                onClick={() => handlePieClick(entry)}
+              >
+                <div
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    backgroundColor: getColor(entry, index)
+                  }}
+                />
+                <span>
+                  {formatLabel(entry[nameKey])} - {entry[dataKey]}
+                  {showPercentage && entry.percentage !== undefined && ` (${entry.percentage}%)`}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </>

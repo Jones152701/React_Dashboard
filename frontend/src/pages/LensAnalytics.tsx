@@ -8,6 +8,7 @@ import type { DateFilterState } from "../components/lens-analytics-components/fi
 import UserActivity from "../components/lens-analytics-components/lens-user/UserActivity";
 
 import ChartCard from "../components/Social_Media_Components/ChartCard/ChartCard";
+
 import ChartRenderer from "../components/ChartRender";
 import Cards from "../components/cards/Cards";
 
@@ -130,7 +131,7 @@ const LenAnalytics: React.FC = () => {
 
       try {
         const response = await axios.get<ApiResponse>(
-          "http://localhost:8000/LensOverview/LensAnalytics",
+          "/LensOverview/LensAnalytics",   // ✅ CHANGED HERE
           {
             params: {
               from_date: filters.fromDate,

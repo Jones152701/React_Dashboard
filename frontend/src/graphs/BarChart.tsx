@@ -13,12 +13,19 @@ import {
 
 /* ================= TYPES ================= */
 
+export interface DrillEvent {
+  type: "bar" | "area" | "pie" | "word" | "treemap";
+  key: string;
+  value: any;
+  data: any;
+}
+
 interface BarConfig {
   xKey: string;
   yKey: string;
-  color?: string;           // Single color
-  colors?: string[];        // Array of colors (alternating)
-  colorsMap?: Record<string, string>;  // Semantic mapping
+  color?: string;
+  colors?: string[];
+  colorsMap?: Record<string, string>;
   radius?: [number, number, number, number];
   layout?: "horizontal" | "vertical";
   showGrid?: boolean;
@@ -39,6 +46,9 @@ interface BarConfig {
 interface Props {
   data: any[];
   config: BarConfig;
+  onDrillDown?: (event: DrillEvent) => void;
+  drillKey?: string;
+  selectedValue?: any;
 }
 
 /* ================= FORMATTERS ================= */
@@ -82,7 +92,6 @@ const formatLabel = (value: any): string => {
 const formatXAxis = (value: any, isDate: boolean = false): string => {
   if (!value) return "";
 
-  // Handle rating values (1-5)
   if (typeof value === 'number' || /^\d+$/.test(String(value))) {
     const numValue = parseInt(value, 10);
     if (numValue >= 1 && numValue <= 5) {
@@ -109,26 +118,28 @@ const getBarColor = (
   xKey: string,
   color?: string,
   colors?: string[],
-  colorsMap?: Record<string, string>
+  colorsMap?: Record<string, string>,
+  selectedValue?: any
 ): string => {
   const key = String(entry?.[xKey] || "").toLowerCase().trim();
+  const isSelected = selectedValue !== undefined && entry?.[xKey] === selectedValue;
 
-  // 1. Highest priority: semantic mapping (colorsMap)
+  if (isSelected) {
+    return "#111827";
+  }
+
   if (colorsMap && colorsMap[key]) {
     return colorsMap[key];
   }
 
-  // 2. Second priority: array of colors (alternating)
   if (colors && colors.length > 0) {
     return colors[index % colors.length];
   }
 
-  // 3. Fallback: single color
   if (color) {
     return color;
   }
 
-  // 4. Default
   return "#7B61FF";
 };
 
@@ -153,7 +164,13 @@ const EmptyState: React.FC<{ height: number }> = ({ height }) => (
 
 /* ================= MAIN COMPONENT ================= */
 
-const GenericBarChart: React.FC<Props> = ({ data, config }) => {
+const GenericBarChart: React.FC<Props> = ({ 
+  data, 
+  config, 
+  onDrillDown,
+  drillKey,
+  selectedValue 
+}) => {
   const {
     xKey,
     yKey,
@@ -172,7 +189,6 @@ const GenericBarChart: React.FC<Props> = ({ data, config }) => {
     isDate = false
   } = config;
 
-  // Validation
   if (!data || data.length === 0) {
     return <EmptyState height={configHeight} />;
   }
@@ -184,21 +200,16 @@ const GenericBarChart: React.FC<Props> = ({ data, config }) => {
 
   const isVertical = layout === "vertical";
 
-  /* ✅ Dynamic Height Calculation */
   const computedHeight = useMemo(() => {
     if (configHeight) return configHeight;
-
     if (isVertical) {
       return Math.max(320, Math.min(600, data.length * 40));
     }
-
     return 320;
   }, [configHeight, isVertical, data.length]);
 
-  /* ✅ Memoize tooltip formatter */
   const tooltipLabelFormatter = useMemo(() => {
     return (label: any) => {
-      // Check if it's a rating value
       if (typeof label === "number" || /^\d+$/.test(String(label))) {
         const num = parseInt(label, 10);
         if (num >= 1 && num <= 5) {
@@ -216,6 +227,17 @@ const GenericBarChart: React.FC<Props> = ({ data, config }) => {
     };
   }, [isDate]);
 
+  const handleBarClick = (entry: any) => {
+    if (!onDrillDown) return;
+    
+    onDrillDown({
+      type: "bar",
+      key: drillKey || xKey,
+      value: entry[xKey],
+      data: entry,
+    });
+  };
+
   return (
     <ResponsiveContainer width="100%" height={computedHeight}>
       <BarChart
@@ -223,7 +245,6 @@ const GenericBarChart: React.FC<Props> = ({ data, config }) => {
         layout={isVertical ? "vertical" : "horizontal"}
         margin={margin}
       >
-        {/* Grid */}
         {showGrid && (
           <CartesianGrid
             strokeDasharray="3 3"
@@ -232,7 +253,6 @@ const GenericBarChart: React.FC<Props> = ({ data, config }) => {
           />
         )}
 
-        {/* X Axis */}
         <XAxis
           type={isVertical ? "number" : "category"}
           dataKey={!isVertical ? xKey : undefined}
@@ -251,7 +271,6 @@ const GenericBarChart: React.FC<Props> = ({ data, config }) => {
           )}
         </XAxis>
 
-        {/* Y Axis */}
         <YAxis
           type={isVertical ? "category" : "number"}
           dataKey={isVertical ? xKey : undefined}
@@ -272,15 +291,15 @@ const GenericBarChart: React.FC<Props> = ({ data, config }) => {
           )}
         </YAxis>
 
-        {/* Tooltip */}
         <Tooltip labelFormatter={tooltipLabelFormatter} />
 
-        {/* Single Bar with Dynamic Colors */}
         <Bar dataKey={yKey} fill={color || "#7B61FF"} radius={radius}>
           {data.map((entry, index) => (
             <Cell
               key={`cell-${index}`}
-              fill={getBarColor(entry, index, xKey, color, colors, colorsMap)}
+              fill={getBarColor(entry, index, xKey, color, colors, colorsMap, selectedValue)}
+              style={{ cursor: onDrillDown ? "pointer" : "default" }}
+              onClick={() => handleBarClick(entry)}
             />
           ))}
         </Bar>

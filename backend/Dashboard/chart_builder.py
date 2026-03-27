@@ -4,6 +4,7 @@ def build_chart(
     data,
     x_key,
     y_key=None,
+    drill_key=None,   # ✅ ADDED
     title="",
     tooltip="",
     icon="",
@@ -35,6 +36,8 @@ def build_chart(
 
     margin = margin or {"top": 20, "right": 10, "left": 20, "bottom": 30}
 
+    print("BUILD CHART DRILL KEY:", drill_key)
+
     # ================= BAR (SINGLE SERIES) =================
     if chart_type == "bar":
         layout = (layout or "vertical").lower()
@@ -56,6 +59,7 @@ def build_chart(
         config = {
             "xKey": x_key,
             "yKey": y_key or "value",
+            "drillKey": drill_key,   # ✅ ADDED
             "layout": layout,
             "color": color if isinstance(color, str) else None,
             "colors": color if isinstance(color, list) else None,
@@ -114,6 +118,7 @@ def build_chart(
         
         config = {
             "xKey": x_key,
+            "drillKey": drill_key,   # ✅ ADDED
             "layout": layout,
             "bars": bars,
             "margin": margin,
@@ -166,6 +171,7 @@ def build_chart(
         config = {
             "xKey": x_key,
             "yKey": y_key or "value",
+            "drillKey": drill_key,   # ✅ ADDED
             "areas": areas,
             "margin": margin,
             "xLabel": x_label_final,
@@ -181,6 +187,7 @@ def build_chart(
         config = {
             "nameKey": x_key,
             "dataKey": y_key or "value",
+            "drillKey": drill_key,   # ✅ ADDED
             "radius": radius or 0.8,
             "innerRadius": 0,
             "isDate": is_date,
@@ -206,6 +213,7 @@ def build_chart(
         config = {
             "dataKey": "value",
             "nameKey": x_key,
+            "drillKey": drill_key,   # ✅ ADDED
             "colors": treemap_colors,
             "stroke": "#fff",
             "borderRadius": radius or 4,

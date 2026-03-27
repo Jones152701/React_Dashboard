@@ -4,6 +4,13 @@ import { scaleLog } from "@visx/scale";
 
 /* ---------------- Types ---------------- */
 
+export interface DrillEvent {
+  type: "bar" | "area" | "pie" | "word" | "treemap";
+  key: string;
+  value: any;
+  data: any;
+}
+
 interface WordData {
   text: string;
   value: number;
@@ -20,6 +27,8 @@ interface Props {
   minFontSize?: number;
   maxFontSize?: number;
   padding?: number;
+  onDrillDown?: (event: DrillEvent) => void;
+  selectedValue?: string;
 }
 
 /* ---------------- Fixed Layout ---------------- */
@@ -35,11 +44,6 @@ const WORD_COLORS = [
   "#3B82F6",
   "#0EA5E9",
   "#14B8A6",
-  // "#10B981",
-  // "#F59E0B",
-  // "#EF4444",
-  // "#EC4899",
-  // "#F97316",
 ];
 
 /* ---------------- Component ---------------- */
@@ -49,7 +53,9 @@ const WordCloudVisx: React.FC<Props> = ({
   maxWords = 80,
   minFontSize = 12,
   maxFontSize = 40,
-  padding = 0.5, // tighter packing for horizontal words
+  padding = 0.5,
+  onDrillDown,
+  selectedValue,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({
@@ -57,7 +63,6 @@ const WordCloudVisx: React.FC<Props> = ({
     height: BASE_HEIGHT,
   });
 
-  /* ---------- Responsive container ---------- */
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -78,7 +83,6 @@ const WordCloudVisx: React.FC<Props> = ({
 
   const { width, height } = dimensions;
 
-  /* ---------- Prepare words ---------- */
   const words = useMemo<VisxWord[]>(() => {
     return [...data]
       .sort((a, b) => b.value - a.value)
@@ -86,7 +90,6 @@ const WordCloudVisx: React.FC<Props> = ({
       .map((d) => ({ text: d.text, value: d.value }));
   }, [data, maxWords]);
 
-  /* ---------- Font scale ---------- */
   const fontScale = useMemo(() => {
     if (words.length === 0) return () => minFontSize;
 
@@ -101,21 +104,34 @@ const WordCloudVisx: React.FC<Props> = ({
     });
   }, [words, minFontSize, maxFontSize]);
 
-  /* ---------- Helpers ---------- */
-
-  const getColor = useCallback((index: number) => {
+  const getColor = useCallback((index: number, text: string) => {
+    const isSelected = selectedValue !== undefined && text === selectedValue;
+    
+    if (isSelected) {
+      return "#111827";
+    }
+    
     return WORD_COLORS[index % WORD_COLORS.length];
-  }, []);
+  }, [selectedValue]);
 
   const fontSizeSetter = useCallback(
     (datum: VisxWord) => fontScale(datum.value),
     [fontScale]
   );
 
-  /* ✅ ALL WORDS HORIZONTAL */
   const getRotation = useCallback(() => 0, []);
 
-  /* ---------- Empty state ---------- */
+  const handleWordClick = (word: VisxWord) => {
+    if (!onDrillDown) return;
+    
+    onDrillDown({
+      type: "word",
+      key: "text",
+      value: word.text,
+      data: word,
+    });
+  };
+
   if (!data || data.length === 0) {
     return (
       <div
@@ -135,7 +151,6 @@ const WordCloudVisx: React.FC<Props> = ({
     );
   }
 
-  /* ---------- Scale + Center ---------- */
   const scaleX = width / BASE_WIDTH;
   const scaleY = height / BASE_HEIGHT;
   const scale = Math.min(scaleX, scaleY);
@@ -143,7 +158,6 @@ const WordCloudVisx: React.FC<Props> = ({
   const offsetX = (width - BASE_WIDTH * scale) / 2;
   const offsetY = (height - BASE_HEIGHT * scale) / 2;
 
-  /* ---------- Render ---------- */
   return (
     <div
       ref={containerRef}
@@ -166,14 +180,15 @@ const WordCloudVisx: React.FC<Props> = ({
             font={"Inter, Sora, sans-serif"}
             fontSize={fontSizeSetter}
             padding={padding}
-            rotate={getRotation} // 🔥 no rotation
+            rotate={getRotation}
             spiral="archimedean"
-            random={() => 0.5} // deterministic layout
+            random={() => 0.5}
           >
             {(cloudWords) =>
               cloudWords.map((w, i) => {
                 const fontSize = w.size ?? 14;
                 const isBig = fontSize > maxFontSize * 0.5;
+                const isSelected = selectedValue !== undefined && w.text === selectedValue;
 
                 return (
                   <text
@@ -183,17 +198,15 @@ const WordCloudVisx: React.FC<Props> = ({
                     fontSize={fontSize}
                     fontFamily="Inter, Sora, sans-serif"
                     fontWeight={
-                      isBig
-                        ? 700
-                        : fontSize > maxFontSize * 0.3
-                        ? 600
-                        : 400
+                      isSelected ? 800 : (isBig ? 700 : fontSize > maxFontSize * 0.3 ? 600 : 400)
                     }
-                    fill={getColor(i)}
+                    fill={getColor(i, w.text)}
                     style={{
-                      cursor: "default",
+                      cursor: onDrillDown ? "pointer" : "default",
                       userSelect: "none",
+                      transition: "font-weight 0.2s ease",
                     }}
+                    onClick={() => handleWordClick(w)}
                   >
                     {w.text}
                   </text>

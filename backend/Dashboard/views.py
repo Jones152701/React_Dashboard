@@ -386,6 +386,9 @@ class LensAnalyticsView(APIView):
 
 
 
+
+
+
 class SocialMediaDailyView(APIView):
 
     def get(self, request):
@@ -407,13 +410,18 @@ class SocialMediaDailyView(APIView):
         search = request.GET.get("search", "").strip()
         
         # =============== EXPLICIT REQUEST TYPE DETECTION ===============
-        request_type = request.GET.get("type", "dashboard")  # 'dashboard' or 'reviews'
+        request_type = request.GET.get("type", "dashboard")  # 'dashboard', 'reviews', or 'drilldown'
         is_review_request = request_type == "reviews"
+        is_drilldown_request = request_type == "drilldown"
         
         # Page-based pagination (only used for review requests)
         page = int(request.GET.get("page", 1))
         limit = 15
         offset = (page - 1) * limit
+
+        # =============== DRILLDOWN PARAMETERS ===============
+        drill_key = request.GET.get("drill_key", "")      # e.g., 'platform', 'country', 'sentiment'
+        drill_value = request.GET.get("drill_value", "")  # e.g., 'twitter', 'US', 'positive'
 
         # =============== DEBUG PRINT ===============
         print("\n===== REQUEST DEBUG =====")
@@ -425,6 +433,9 @@ class SocialMediaDailyView(APIView):
         print(f"Sentiments: {sentiments}")
         print(f"Search: '{search}'")
         print(f"Page: {page if is_review_request else 'N/A'}")
+        if is_drilldown_request:
+            print(f"Drill Key: {drill_key}")
+            print(f"Drill Value: {drill_value}")
         print("========================\n")
 
         # =============== FIXED: Separate date params from filter params ===============
@@ -466,8 +477,32 @@ class SocialMediaDailyView(APIView):
                 filters.append(f"LOWER(sentiment) IN ({placeholders})")
                 filter_params.extend(sentiment_list)
 
-        # Safe search with parameterization (only for review requests)
-        if search and is_review_request:
+        # Add drilldown filter if this is a drilldown request
+        if is_drilldown_request and drill_key and drill_value:
+            # Map drill keys to database columns
+            drill_column_map = {
+                "platform": "platform",
+                "country": "country", 
+                "sentiment": "sentiment",
+                "segment": "sentiment",  # ✅ FIX: Map frontend 'segment' to database 'sentiment'
+                "text": "message",       # ✅ NEW: Map frontend 'text' to database 'message'
+                "primary_mention": "primary_mention",
+                "issue_type": "issue_type",
+                "journey_stage": "journey_stage",
+                "churn_risk": "churn_risk",
+                "resolution_status": "resolution_status",
+                "value_for_money": "value_for_money",
+                "gender": "gender",
+                "language": "language"
+            }
+            
+            if drill_key in drill_column_map:
+                column = drill_column_map[drill_key]
+                filters.append(f"LOWER({column}) = %s")
+                filter_params.append(drill_value.lower())
+
+        # Safe search with parameterization (only for review and drilldown requests)
+        if search and (is_review_request or is_drilldown_request):
             filters.append("""
                 (
                     LOWER(message) LIKE %s
@@ -492,79 +527,635 @@ class SocialMediaDailyView(APIView):
                 current_from = datetime.strptime(from_date, "%Y-%m-%d")
                 current_to = datetime.strptime(to_date, "%Y-%m-%d") + timedelta(days=1)
                 
-                # Previous period (same length, before current)
-                diff_days = (current_to - current_from).days
-                prev_to = current_from
-                prev_from = prev_to - timedelta(days=diff_days)
-                
-                # Format for SQL
-                current_from_str = current_from.strftime("%Y-%m-%d")
-                current_to_str = current_to.strftime("%Y-%m-%d")
-                prev_from_str = prev_from.strftime("%Y-%m-%d")
-                prev_to_str = prev_to.strftime("%Y-%m-%d")
+                # Previous period (same length, before current) - for dashboard only
+                if not is_drilldown_request:
+                    diff_days = (current_to - current_from).days
+                    prev_to = current_from
+                    prev_from = prev_to - timedelta(days=diff_days)
+                    
+                    # Format for SQL
+                    current_from_str = current_from.strftime("%Y-%m-%d")
+                    current_to_str = current_to.strftime("%Y-%m-%d")
+                    prev_from_str = prev_from.strftime("%Y-%m-%d")
+                    prev_to_str = prev_to.strftime("%Y-%m-%d")
+                else:
+                    # For drilldown, we only need current period
+                    current_from_str = current_from.strftime("%Y-%m-%d")
+                    current_to_str = current_to.strftime("%Y-%m-%d")
 
-                # =============== DEBUG: Check data availability ===============
-                debug_query = f"""
-                    SELECT 
-                        COUNT(*) as total,
-                        MIN(created_date) as earliest,
-                        MAX(created_date) as latest,
-                        COUNT(DISTINCT country) as countries,
-                        COUNT(DISTINCT platform) as platforms,
-                        COUNT(DISTINCT sentiment) as sentiments
-                    FROM {table}
-                    WHERE created_date >= %s AND created_date < %s
-                """
 
-                cursor.execute(debug_query, [current_from_str, current_to_str])
-                debug_result = cursor.fetchone()
-
-                print("\n===== DATA DEBUG =====")
-                print(f"Total records in date range: {debug_result[0]}")
-                print(f"Earliest date: {debug_result[1]}")
-                print(f"Latest date: {debug_result[2]}")
-                print(f"Unique countries: {debug_result[3]}")
-                print(f"Unique platforms: {debug_result[4]}")
-                print(f"Unique sentiments: {debug_result[5]}")
-                print("======================\n")
-
-                if debug_result[0] == 0:
-                    print("⚠️ WARNING: No data found in the selected date range!")
-                    print(f"Try expanding: current range {current_from_str} to {current_to_str}")
-
-                # =============== DEBUG: Check filter application ===============
-                if filters:
-                    filter_preview_query = f"""
-                        SELECT COUNT(*) 
+                # =============== FOR DRILLDOWN REQUESTS - RETURN MINI-DASHBOARD ===============
+                if is_drilldown_request:
+                    
+                    # ✅ HELPER FUNCTION FOR DATE VALIDATION
+                    def is_valid_date(val):
+                        """Validate YYYY-MM-DD date format"""
+                        return isinstance(val, str) and re.match(r"^\d{4}-\d{2}-\d{2}$", val) is not None
+                    
+                    # ✅ PRODUCTION-GRADE COLUMN MAP WITH TYPE INFORMATION
+                    COLUMN_MAP = {
+                        # String fields (use LOWER() for case-insensitive matching)
+                        "platform": ("platform", "string"),
+                        "country": ("country", "string"),
+                        "sentiment": ("sentiment", "string"),
+                        
+                        # Map frontend 'segment' to database 'sentiment'
+                        "segment": ("sentiment", "string"),
+                        
+                        # Map frontend 'text' to database 'message' for word cloud drilldown
+                        "text": ("message", "string"),
+                        
+                        "primary_mention": ("primary_mention", "string"),
+                        "issue_type": ("issue_type", "string"),
+                        "journey_stage": ("journey_stage", "string"),
+                        "churn_risk": ("churn_risk", "string"),
+                        "resolution_status": ("resolution_status", "string"),
+                        "value_for_money": ("value_for_money", "string"),
+                        "gender": ("gender", "string"),
+                        "language": ("language", "string"),
+                        
+                        # Numeric fields (direct equality, no LOWER())
+                        "rating": ("user_rating", "number"),
+                        "user_rating": ("user_rating", "number"),
+                        
+                        # Date fields (special handling)
+                        "created_date": ("created_date", "date"),
+                        "day": ("created_date", "date"),
+                        "date": ("created_date", "date"),
+                    }
+                    
+                    # Make a copy of the base filters
+                    drill_filters = filters.copy() if filters else []
+                    drill_filter_params = filter_params.copy() if filter_params else []
+                    
+                    # ✅ Add drilldown filter with proper type handling
+                    if drill_key and drill_value:
+                        # Get column info from map, default to string type
+                        db_column, col_type = COLUMN_MAP.get(drill_key, (drill_key, "string"))
+                        
+                        print(f"🔍 Drill Debug - Key: {drill_key}, Value: {drill_value}, Column: {db_column}, Type: {col_type}")
+                        
+                        try:
+                            # Handle based on data type
+                            if col_type == "number":
+                                # Numeric field - direct equality, no LOWER()
+                                filter_condition = f"{db_column} = %s"
+                                filter_value = int(drill_value)
+                                print(f"✅ Applied numeric filter: {db_column} = {filter_value}")
+                                
+                            elif col_type == "date":
+                                # Date field - handle date conversion with validation
+                                if is_valid_date(drill_value):
+                                    filter_condition = f"DATE({db_column}) = %s"
+                                    filter_value = drill_value
+                                    print(f"✅ Applied date filter: DATE({db_column}) = {drill_value}")
+                                else:
+                                    print(f"⚠️ Invalid date format: {drill_value}, skipping filter")
+                                    filter_condition = None
+                                    
+                            else:  # string type
+                                # Handle text/word cloud with LIKE instead of exact match
+                                value = str(drill_value).lower()
+                                
+                                # Special handling for text/word cloud drilldown
+                                if drill_key == "text":
+                                    filter_condition = f"LOWER({db_column}) LIKE %s"
+                                    filter_value = f"%{value}%"
+                                    print(f"✅ Applied text search: {db_column} LIKE '%{value}%'")
+                                else:
+                                    filter_condition = f"LOWER({db_column}) = %s"
+                                    filter_value = value
+                                    print(f"✅ Applied string filter: LOWER({db_column}) = '{value}'")
+                            
+                            # ✅ CRITICAL FIX: Rebuild filters and params together
+                            if filter_condition:
+                                # Rebuild both arrays, removing any existing filters for this column
+                                new_filters = []
+                                new_params = []
+                                
+                                for f, p in zip(drill_filters, drill_filter_params):
+                                    if db_column not in f:
+                                        new_filters.append(f)
+                                        new_params.append(p)
+                                
+                                removed_count = len(drill_filters) - len(new_filters)
+                                if removed_count > 0:
+                                    print(f"🔄 Removed {removed_count} existing filter(s) for column '{db_column}'")
+                                
+                                # Replace with cleaned lists
+                                drill_filters = new_filters
+                                drill_filter_params = new_params
+                                
+                                # Add the new filter and its param
+                                drill_filters.append(filter_condition)
+                                drill_filter_params.append(filter_value)
+                                print(f"✅ Added new filter: {filter_condition}")
+                                    
+                        except Exception as e:
+                            print(f"❌ Error applying drill filter: {e}")
+                            import traceback
+                            traceback.print_exc()
+                    
+                    # ✅ Handle drill context (additional filters from charts)
+                    drill_context = request.GET.get("drill_context")
+                    
+                    if drill_context:
+                        try:
+                            import json
+                            context_data = json.loads(drill_context)
+                            
+                            print(f"🔍 Drill Context Received: {context_data}")
+                            
+                            # ✅ Handle DATE only if valid (YYYY-MM-DD format)
+                            if "day" in context_data and is_valid_date(context_data["day"]):
+                                # Rebuild arrays, removing existing date filters
+                                new_filters = []
+                                new_params = []
+                                
+                                for f, p in zip(drill_filters, drill_filter_params):
+                                    if "DATE(created_date)" not in f:
+                                        new_filters.append(f)
+                                        new_params.append(p)
+                                
+                                removed_count = len(drill_filters) - len(new_filters)
+                                if removed_count > 0:
+                                    print(f"🔄 Removed {removed_count} existing date filter(s)")
+                                
+                                drill_filters = new_filters
+                                drill_filter_params = new_params
+                                
+                                drill_filters.append("DATE(created_date) = %s")
+                                drill_filter_params.append(context_data["day"])
+                                print(f"✅ Added DATE filter: {context_data['day']}")
+                            
+                            # ✅ Handle journey stage filter
+                            if "stage" in context_data and context_data["stage"]:
+                                # Rebuild arrays, removing existing stage filters
+                                new_filters = []
+                                new_params = []
+                                
+                                for f, p in zip(drill_filters, drill_filter_params):
+                                    if "journey_stage" not in f:
+                                        new_filters.append(f)
+                                        new_params.append(p)
+                                
+                                removed_count = len(drill_filters) - len(new_filters)
+                                if removed_count > 0:
+                                    print(f"🔄 Removed {removed_count} existing stage filter(s)")
+                                
+                                drill_filters = new_filters
+                                drill_filter_params = new_params
+                                
+                                drill_filters.append("LOWER(journey_stage) = %s")
+                                drill_filter_params.append(context_data["stage"].lower())
+                                print(f"✅ Added stage filter: {context_data['stage']}")
+                            
+                            # ✅ Handle segment filter
+                            if "segment" in context_data and context_data["segment"] and drill_key != "segment":
+                                # Rebuild arrays, removing existing sentiment filters
+                                new_filters = []
+                                new_params = []
+                                
+                                for f, p in zip(drill_filters, drill_filter_params):
+                                    if "sentiment" not in f:
+                                        new_filters.append(f)
+                                        new_params.append(p)
+                                
+                                removed_count = len(drill_filters) - len(new_filters)
+                                if removed_count > 0:
+                                    print(f"🔄 Removed {removed_count} existing sentiment filter(s)")
+                                
+                                drill_filters = new_filters
+                                drill_filter_params = new_params
+                                
+                                drill_filters.append("LOWER(sentiment) = %s")
+                                drill_filter_params.append(context_data["segment"].lower())
+                                print(f"✅ Added segment filter: {context_data['segment']}")
+                            
+                            # ✅ Handle text filter from context (for word cloud)
+                            if "text" in context_data and context_data["text"] and drill_key != "text":
+                                # Rebuild arrays, removing existing message filters
+                                new_filters = []
+                                new_params = []
+                                
+                                for f, p in zip(drill_filters, drill_filter_params):
+                                    if "message" not in f:
+                                        new_filters.append(f)
+                                        new_params.append(p)
+                                
+                                removed_count = len(drill_filters) - len(new_filters)
+                                if removed_count > 0:
+                                    print(f"🔄 Removed {removed_count} existing message filter(s)")
+                                
+                                drill_filters = new_filters
+                                drill_filter_params = new_params
+                                
+                                drill_filters.append("LOWER(message) LIKE %s")
+                                drill_filter_params.append(f"%{context_data['text'].lower()}%")
+                                print(f"✅ Added text filter: {context_data['text']}")
+                            
+                            # ✅ Handle platform filter from context
+                            if "platform" in context_data and context_data["platform"] and drill_key != "platform":
+                                # Rebuild arrays, removing existing platform filters
+                                new_filters = []
+                                new_params = []
+                                
+                                for f, p in zip(drill_filters, drill_filter_params):
+                                    if "platform" not in f:
+                                        new_filters.append(f)
+                                        new_params.append(p)
+                                
+                                removed_count = len(drill_filters) - len(new_filters)
+                                if removed_count > 0:
+                                    print(f"🔄 Removed {removed_count} existing platform filter(s)")
+                                
+                                drill_filters = new_filters
+                                drill_filter_params = new_params
+                                
+                                drill_filters.append("LOWER(platform) = %s")
+                                drill_filter_params.append(context_data["platform"].lower())
+                                print(f"✅ Added platform filter: {context_data['platform']}")
+                            
+                            # ✅ Handle country filter from context
+                            if "country" in context_data and context_data["country"] and drill_key != "country":
+                                # Rebuild arrays, removing existing country filters
+                                new_filters = []
+                                new_params = []
+                                
+                                for f, p in zip(drill_filters, drill_filter_params):
+                                    if "country" not in f:
+                                        new_filters.append(f)
+                                        new_params.append(p)
+                                
+                                removed_count = len(drill_filters) - len(new_filters)
+                                if removed_count > 0:
+                                    print(f"🔄 Removed {removed_count} existing country filter(s)")
+                                
+                                drill_filters = new_filters
+                                drill_filter_params = new_params
+                                
+                                drill_filters.append("LOWER(country) = %s")
+                                drill_filter_params.append(context_data["country"].lower())
+                                print(f"✅ Added country filter: {context_data['country']}")
+                            
+                            # ✅ Handle sentiment filter from context
+                            if "sentiment" in context_data and context_data["sentiment"] and drill_key != "sentiment":
+                                # Rebuild arrays, removing existing sentiment filters
+                                new_filters = []
+                                new_params = []
+                                
+                                for f, p in zip(drill_filters, drill_filter_params):
+                                    if "sentiment" not in f:
+                                        new_filters.append(f)
+                                        new_params.append(p)
+                                
+                                removed_count = len(drill_filters) - len(new_filters)
+                                if removed_count > 0:
+                                    print(f"🔄 Removed {removed_count} existing sentiment filter(s)")
+                                
+                                drill_filters = new_filters
+                                drill_filter_params = new_params
+                                
+                                drill_filters.append("LOWER(sentiment) = %s")
+                                drill_filter_params.append(context_data["sentiment"].lower())
+                                print(f"✅ Added sentiment filter: {context_data['sentiment']}")
+                            
+                        except json.JSONDecodeError as e:
+                            print(f"⚠️ Invalid JSON in drill_context: {e}")
+                        except Exception as e:
+                            print(f"⚠️ Drill context parsing failed: {e}")
+                            import traceback
+                            traceback.print_exc()
+                    
+                    # ✅ Rebuild where_clause with drill filters
+                    drill_where_clause = ""
+                    if drill_filters:
+                        drill_where_clause = "WHERE " + " AND ".join(drill_filters)
+                        print(f"✅ Final Drill WHERE clause: {drill_where_clause}")
+                        print(f"✅ Final Drill params: {drill_filter_params}")
+                    else:
+                        print(f"⚠️ No drill filters applied!")
+                    
+                    # Prepare parameters for drilldown queries
+                    drill_params = drill_filter_params.copy()
+                    drill_params.extend([current_from_str, current_to_str])
+                    
+                    # =============== KPI CARDS ===============
+                    kpi_query = f"""
+                        SELECT
+                            COUNT(*) as total_reviews,
+                            AVG(user_rating) as avg_rating,
+                            AVG(sentiment_score) as avg_sentiment
                         FROM {table}
-                        {where_clause + " AND created_date >= %s AND created_date < %s"}
+                        {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
                     """
-
-                    preview_params = filter_params.copy() if filter_params else []
-                    preview_params.extend([current_from_str, current_to_str])
-
-                    cursor.execute(filter_preview_query, preview_params)
-                    filtered_count = cursor.fetchone()[0]
-
-                    print("\n===== FILTER DEBUG =====")
-                    print(f"Records after filters + date: {filtered_count}")
-                    print(f"Where clause: {where_clause}")
-                    print(f"Filter params: {filter_params}")
-                    print(f"Date range: {current_from_str} to {current_to_str}")
-                    print("========================\n")
-
-                    # If filtered_count is 0, check without filters
-                    if filtered_count == 0 and filter_params:
-                        cursor.execute(
-                            f"SELECT COUNT(*) FROM {table} WHERE created_date >= %s AND created_date < %s",
-                            [current_from_str, current_to_str]
-                        )
-                        unfiltered_count = cursor.fetchone()[0]
-                        print(f"⚠️ Without filters: {unfiltered_count} records exist")
-                        print("→ Your filters are too restrictive!")
+                    
+                    print(f"📊 KPI Query: {kpi_query}")
+                    print(f"📊 KPI Params: {drill_params}")
+                    
+                    cursor.execute(kpi_query, drill_params)
+                    kpi_row = cursor.fetchone()
+                    
+                    total_reviews = kpi_row[0] or 0 if kpi_row else 0
+                    avg_rating = float(kpi_row[1] or 0) if kpi_row else 0
+                    avg_sentiment = float(kpi_row[2] or 0) if kpi_row else 0
+                    
+                    # Get total for percentage calculation
+                    total_query = f"""
+                        SELECT COUNT(*)
+                        FROM {table}
+                        WHERE created_date >= %s AND created_date < %s
+                    """
+                    
+                    cursor.execute(total_query, [current_from_str, current_to_str])
+                    grand_total = cursor.fetchone()[0] or 1
+                    
+                    percentage = round((total_reviews / grand_total) * 100, 2) if grand_total > 0 else 0
+                    
+                    cards = {
+                        "total_reviews": total_reviews,
+                        "avg_rating": round(avg_rating, 2),
+                        "avg_sentiment_score": round(avg_sentiment, 3),
+                        "percentage_of_total": percentage
+                    }
+                    
+                    print(f"📊 KPI Results - Filtered: {total_reviews}, Total: {grand_total}, Percentage: {percentage}%")
+                    
+                    # =============== DAILY TREND ===============
+                    daily_trend = []
+                    if drill_key != "text":
+                        trend_query = f"""
+                            SELECT DATE(created_date) as day, COUNT(*) as count
+                            FROM {table}
+                            {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                            GROUP BY DATE(created_date)
+                            ORDER BY day
+                        """
+                        
+                        cursor.execute(trend_query, drill_params)
+                        trend_rows = cursor.fetchall()
+                        
+                        daily_trend = [
+                            {"day": row[0].strftime("%Y-%m-%d") if hasattr(row[0], 'strftime') else row[0], "count": row[1]}
+                            for row in trend_rows
+                        ]
+                        
+                        print(f"📈 Daily trend rows: {len(daily_trend)}")
+                    else:
+                        print(f"📈 Skipping daily trend for text/word cloud drilldown")
+                    
+                    # =============== PLATFORM DISTRIBUTION ===============
+                    platform_query = f"""
+                        SELECT platform, COUNT(*) as count
+                        FROM {table}
+                        {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                        GROUP BY platform
+                        ORDER BY count DESC
+                    """
+                    
+                    cursor.execute(platform_query, drill_params)
+                    platform_rows = cursor.fetchall()
+                    
+                    platform_distribution = [
+                        {"platform": row[0] or "Unknown", "count": row[1]}
+                        for row in platform_rows
+                    ]
+                    
+                    print(f"📱 Platform distribution rows: {len(platform_distribution)}")
+                    
+                    # =============== SENTIMENT DISTRIBUTION ===============
+                    sentiment_query = f"""
+                        SELECT sentiment, COUNT(*) as count
+                        FROM {table}
+                        {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                        GROUP BY sentiment
+                    """
+                    
+                    cursor.execute(sentiment_query, drill_params)
+                    sentiment_rows = cursor.fetchall()
+                    
+                    sentiment_distribution = [
+                        {"name": row[0] or "Unknown", "value": row[1]}
+                        for row in sentiment_rows
+                    ]
+                    
+                    print(f"🎯 Sentiment distribution rows: {len(sentiment_distribution)}")
+                    
+                    # =============== WORD CLOUD ===============
+                    stopwords = set([
+                        'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", 
+                        "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 
+                        'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 
+                        'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 
+                        'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 
+                        'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 
+                        'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 
+                        'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 
+                        'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 
+                        'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 
+                        'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 
+                        'too', 'very', 's', 't', 'can', 'will', 'just', 'don', "don't", 'should', "should've", 
+                        'now', 'aren', "aren't", 'couldn', "couldn't", 'didn', "didn't", 'doesn', "doesn't", 
+                        'hadn', "hadn't", 'hasn', "hasn't", 'haven', "haven't", 'isn', "isn't", 'ma', 'mightn', 
+                        "mightn't", 'mustn', "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn', "shouldn't", 
+                        'wasn', "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't", 'really', 'very', 
+                        'quite', 'too', 'much', 'many', 'also', 'even', 'still', 'just', 'already', 'yet', 'however', 
+                        'therefore', 'thus', 'hence', 'consequently', 'meanwhile', 'nevertheless', 'nonetheless', 
+                        'otherwise', 'instead', 'furthermore', 'moreover', 'additionally', 'besides', 'indeed', 
+                        'actually', 'basically', 'essentially', 'literally', 'seriously', 'honestly', 'personally', 
+                        'generally', 'usually', 'normally', 'typically', 'often', 'sometimes', 'rarely', 'never', 
+                        'always', 'forever', 'constantly', 'continuously', 'this', 'that', 'these', 'those', 'any', 
+                        'some', 'every', 'each', 'all', 'both', 'either', 'neither', 'another', 'such', 'what', 
+                        'which', 'whose', 'a', 'an', 'the', 'and', 'but', 'or', 'if', 'because', 'as', 'until', 
+                        'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 
+                        'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 
+                        'off', 'over', 'under', 'again', 'further', 'then', 'once', 'have', 'has', 'had', 'do', 'does', 
+                        'did', 'say', 'says', 'said', 'go', 'goes', 'went', 'get', 'gets', 'got', 'make', 'makes', 
+                        'made', 'know', 'knows', 'knew', 'think', 'thinks', 'thought', 'take', 'takes', 'took', 'see', 
+                        'sees', 'saw', 'come', 'comes', 'came', 'want', 'wants', 'wanted', 'look', 'looks', 'looked', 
+                        'use', 'uses', 'used', 'find', 'finds', 'found', 'give', 'gives', 'gave', 'tell', 'tells', 
+                        'told', 'work', 'works', 'worked', 'called', 'got', 'get', 'one', 'back', 'go', 'went', 'see', 
+                        'know', 'tell', 'come', 'time', 'day', 'week', 'month', 'year', 'people', 'thing', 'way', 
+                        'said', 'say', 'also', 'well', 'even', 'new', 'first', 'last', 'good', 'bad', 'great', 'really', 
+                        'please', 'help', 'need', 'want', 'thank', 'thanks',
+                        'est', 'que', 'pour', 'les', 'des', 'une', 'dans', 'par', 'sur', 'avec',
+                        'tout', 'plus', 'bien', 'tres', 'fait', 'faire', 'etre', 'avoir', 'cest',
+                        'ca', 'cela', 'cette', 'comme', 'chez', 'aussi', 'donc', 'enfin', 'voila',
+                        'alors', 'toujours', 'jamais', 'pendant', 'depuis', 'entre', 'sans', 'sous'
+                    ])
+                    
+                    word_counter = Counter()
+                    
+                    text_query = f"""
+                        SELECT message
+                        FROM {table}
+                        {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                    """
+                    
+                    cursor.execute(text_query, drill_params)
+                    messages = [row[0] for row in cursor.fetchall() if row[0] and isinstance(row[0], str)]
+                    
+                    for msg in messages:
+                        if not msg.strip():
+                            continue
+                        words = re.findall(r'\b\w+\b', msg.lower())
+                        word_counter.update(words)
+                    
+                    wordcloud = {}
+                    if word_counter:
+                        filtered_words = {
+                            word: count
+                            for word, count in word_counter.items()
+                            if word not in stopwords and len(word) > 3 and not word.isdigit()
+                        }
+                        
+                        if filtered_words:
+                            max_val = max(filtered_words.values())
+                            wordcloud = {
+                                word: int((count / max_val) * 100)
+                                for word, count in sorted(filtered_words.items(), key=lambda x: x[1], reverse=True)[:100]
+                            }
+                    
+                    print(f"📝 Word cloud words: {len(wordcloud)}")
+                    
+                    # =============== REVIEWS LIST ===============
+                    review_query = f"""
+                        SELECT 
+                            username,
+                            platform,
+                            message,
+                            sentiment,
+                            user_rating,
+                            created_date,
+                            country,
+                            link
+                        FROM {table}
+                        {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                        ORDER BY created_date DESC
+                        LIMIT 50
+                    """
+                    
+                    cursor.execute(review_query, drill_params)
+                    review_rows = cursor.fetchall()
+                    
+                    reviews = [
+                        {
+                            "username": row[0],
+                            "platform": row[1],
+                            "message": row[2],
+                            "sentiment": row[3],
+                            "rating": row[4] if row[4] is not None else 0,
+                            "created_date": row[5],
+                            "country": row[6],
+                            "link": row[7],
+                        }
+                        for row in review_rows
+                    ]
+                    
+                    print(f"📋 Reviews returned: {len(reviews)}")
+                    
+                    # =============== BUILD CHARTS ===============
+                    charts = []
+                    
+                    # Daily Trend Chart
+                    if daily_trend and drill_key != "text":
+                        charts.append({
+                            "id": "daily_trend",
+                            "type": "area",
+                            "data": daily_trend,
+                            "config": {
+                                "xKey": "day",
+                                "drillKey": "created_date",
+                                "areas": [{"key": "count", "color": "#3B82F6"}],
+                                "xLabel": "Date",
+                                "yLabel": "Reviews",
+                                "isDate": True,
+                                "height": 320,
+                                "margin": {"top": 20, "right": 10, "left": 20, "bottom": 30}
+                            },
+                            "title": "Daily Trend",
+                            "tooltip": "Reviews over time",
+                            "icon": "bi-graph-up"
+                        })
+                    
+                    # Platform Distribution Chart
+                    if platform_distribution:
+                        charts.append({
+                            "id": "platform_distribution",
+                            "type": "bar",
+                            "data": platform_distribution,
+                            "config": {
+                                "xKey": "platform",
+                                "yKey": "count",
+                                "drillKey": "platform",
+                                "layout": "vertical",
+                                "color": "#3B82F6",
+                                "xLabel": "Count",
+                                "yLabel": "Platform",
+                                "height": 320,
+                                "margin": {"top": 20, "right": 10, "left": 20, "bottom": 30}
+                            },
+                            "title": "Platform Distribution",
+                            "tooltip": "Reviews by platform",
+                            "icon": "bi-phone"
+                        })
+                    
+                    # Sentiment Distribution Chart
+                    if sentiment_distribution:
+                        sentiment_colors = {
+                            "positive": "#10b95d",
+                            "neutral": "#767676",
+                            "negative": "#f65656"
+                        }
+                        
+                        charts.append({
+                            "id": "sentiment_distribution",
+                            "type": "pie",
+                            "data": sentiment_distribution,
+                            "config": {
+                                "xKey": "name",
+                                "yKey": "value",
+                                "drillKey": "sentiment",
+                                "height": 280,
+                                "color": sentiment_colors,
+                                "showLegend": True,
+                                "showLabels": True,
+                                "innerRadius": 0,
+                                "outerRadius": 100
+                            },
+                            "title": "Sentiment Distribution",
+                            "tooltip": "Sentiment split of filtered reviews",
+                            "icon": "bi-pie-chart"
+                        })
+                    
+                    print(f"\n===== DRILLDOWN RESPONSE =====")
+                    print(f"Drill Key: {drill_key}, Drill Value: {drill_value}")
+                    print(f"Total Reviews (filtered): {cards['total_reviews']}")
+                    print(f"Percentage of total: {cards['percentage_of_total']}%")
+                    print(f"Reviews returned: {len(reviews)}")
+                    print(f"Word cloud words: {len(wordcloud)}")
+                    print(f"Charts built: {len(charts)}")
+                    print(f"  - Daily Trend: {'✓' if daily_trend and drill_key != 'text' else '⊘'}")
+                    print(f"  - Platform Distribution: {'✓' if platform_distribution else '✗'}")
+                    print(f"  - Sentiment Distribution: {'✓' if sentiment_distribution else '✗'}")
+                    print(f"Final SQL WHERE: {drill_where_clause}")
+                    print(f"Final SQL Params: {drill_filter_params}")
+                    print("==============================\n")
+                    
+                    return Response({
+                        "cards": cards,
+                        "charts": charts,
+                        "wordcloud": wordcloud,
+                        "reviews": reviews,
+                        "context": {
+                            "key": drill_key,
+                            "value": drill_value,
+                            "type": "drilldown"
+                        }
+                    })
 
                 # =============== FOR REVIEW REQUESTS - ONLY RETURN REVIEWS ===============
-                if is_review_request:
+                elif is_review_request:
                     
                     # ---------------- Reviews (Paginated with Search) ----------------
                     review_query = f"""
@@ -840,7 +1431,7 @@ class SocialMediaDailyView(APIView):
                     ]
 
                     # ---------------- Word Cloud & Hashtags ----------------
-                    top_words=200
+                    top_words = 200
                     word_counter = Counter()
                     hashtag_counter = Counter()
 
@@ -878,7 +1469,7 @@ class SocialMediaDailyView(APIView):
                         print(f"WordCloud processing error: {str(e)}")
                         # Continue with empty counters rather than failing
 
-                    # ✅ EXPANDED STOPWORDS
+                    # Stopwords set (same as drilldown)
                     stopwords = set([
                         'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", 
                         "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 
@@ -922,7 +1513,7 @@ class SocialMediaDailyView(APIView):
                         'alors', 'toujours', 'jamais', 'pendant', 'depuis', 'entre', 'sans', 'sous'
                     ])
 
-                    # ✅ FILTER WORDS (min length 3, no stopwords)
+                    # Filter words
                     if word_counter:
                         filtered_words = {
                             word: count
@@ -930,18 +1521,14 @@ class SocialMediaDailyView(APIView):
                             if word not in stopwords and len(word) > 3 and not word.isdigit()
                         }
                         
-                        # ✅ NORMALIZE VALUES
+                        # Normalize values
                         if filtered_words:
                             max_val = max(filtered_words.values())
                             if max_val > 0:
-                                normalized_words = {
+                                top_words = {
                                     word: int((count / max_val) * 100)
-                                    for word, count in filtered_words.items()
+                                    for word, count in sorted(filtered_words.items(), key=lambda x: x[1], reverse=True)[:200]
                                 }
-                                # ✅ TAKE TOP 100
-                                top_words = dict(
-                                    sorted(normalized_words.items(), key=lambda x: x[1], reverse=True)[:top_words]
-                                )
                             else:
                                 top_words = {}
                         else:
@@ -949,7 +1536,7 @@ class SocialMediaDailyView(APIView):
                     else:
                         top_words = {}
 
-                    # ✅ TOP 10 HASHTAGS - exactly 10
+                    # Top 10 hashtags
                     if hashtag_counter:
                         top_hashtags = dict(hashtag_counter.most_common(10))
                     else:
@@ -1221,7 +1808,7 @@ class SocialMediaDailyView(APIView):
                     # =============== BUILD CHARTS ===============
                     charts = []
 
-                  # 1️⃣ Daily Sentiment → STACKED BAR
+                    # 1️⃣ Daily Sentiment → STACKED BAR
                     if daily_sentiment:
                         charts.append(build_chart(
                             chart_id="daily_sentiment",
@@ -1229,6 +1816,7 @@ class SocialMediaDailyView(APIView):
                             data=daily_sentiment,
                             x_key="day",
                             y_key="value",
+                            drill_key="sentiment",
                             title="Daily Sentiment",
                             tooltip="Sentiment distribution per day",
                             icon="bi-bar-chart-fill",
@@ -1240,8 +1828,8 @@ class SocialMediaDailyView(APIView):
                             ],
                             is_date=True,
                             height=350,
-                            x_label="Date",           # ✅ Custom X-axis label
-                            y_label="Count"  # ✅ Custom Y-axis label
+                            x_label="Date",
+                            y_label="Count"
                         ))
 
                     # 2️⃣ Rating Distribution → BAR
@@ -1258,9 +1846,9 @@ class SocialMediaDailyView(APIView):
                             layout="horizontal",
                             color="#F59E0B",
                             height=320,
-                            x_label="Ratings",    # ✅ Custom X-axis label
-                            y_label="Count",   # ✅ Custom Y-axis label
-                            margin={ "top": 30, "right": 0, "left":20, "bottom": 14}
+                            x_label="Ratings",
+                            y_label="Count",
+                            margin={"top": 30, "right": 0, "left": 20, "bottom": 14}
                         ))
 
                     # 3️⃣ Sentiment Score Trend → AREA
@@ -1277,9 +1865,9 @@ class SocialMediaDailyView(APIView):
                             color="#3B82F6",
                             is_date=True,
                             height=320,
-                            x_label="Date",              # ✅ Custom X-axis label
-                            y_label="Scores",   # ✅ Custom Y-axis label
-                            margin={ "top": 30, "right": 0, "left":20, "bottom": 14}
+                            x_label="Date",
+                            y_label="Scores",
+                            margin={"top": 30, "right": 0, "left": 20, "bottom": 14}
                         ))
 
                     # 4️⃣ Language Distribution → BAR
@@ -1296,9 +1884,9 @@ class SocialMediaDailyView(APIView):
                             color="#8B5CF6",
                             layout="horizontal",
                             height=300,
-                            x_label="Languages",        
-                            y_label="Count"  ,
-                            margin={ "top": 30, "right": 0, "left": 18, "bottom": 13 } 
+                            x_label="Languages",
+                            y_label="Count",
+                            margin={"top": 30, "right": 0, "left": 18, "bottom": 13}
                         ))
 
                     # 5️⃣ Gender Distribution → PIE
@@ -1309,6 +1897,7 @@ class SocialMediaDailyView(APIView):
                             data=gender_distribution,
                             x_key="name",
                             y_key="value",
+                            drill_key="gender",
                             title="Gender Distribution",
                             tooltip="User gender split",
                             icon="bi-people",
@@ -1333,9 +1922,9 @@ class SocialMediaDailyView(APIView):
                             color="#6366F1",
                             layout="horizontal",
                             height=350,
-                            x_label="Hours",       # ✅ Custom X-axis label
+                            x_label="Hours",
                             y_label="Count",
-                            margin={ "top": 30, "right": 0, "left": 20, "bottom": 15}   # ✅ Custom Y-axis label
+                            margin={"top": 30, "right": 0, "left": 20, "bottom": 15}
                         ))
 
                     # 7️⃣ Activity by Day → BAR
@@ -1352,8 +1941,8 @@ class SocialMediaDailyView(APIView):
                             color="#10B981",
                             layout="horizontal",
                             height=350,
-                            x_label="Weeks",       # ✅ Custom X-axis label
-                            y_label="Count"  # ✅ Custom Y-axis label
+                            x_label="Weeks",
+                            y_label="Count"
                         ))
 
                     # 8️⃣ Primary Mentions → TREEMAP
@@ -1365,19 +1954,19 @@ class SocialMediaDailyView(APIView):
                             x_key="name",
                             y_key="value",
                             title="Primary Mentions",
+                            drill_key="primary_mention",
                             tooltip="Top mentioned topics",
                             icon="bi-diagram-3",
                             color=[
-                                '#9F8FFF','#60A5FA','#9CA3AF','#F87171',  
-                                '#4ADE80','#FBBF24','#8B5CF6','#EC4899',  
-                                '#14B8A6','#FB923C','#22C55E',  
-                                '#6366F1','#DB2777','#7C3AED','#06B6D4'
+                                '#9F8FFF', '#60A5FA', '#9CA3AF', '#F87171',
+                                '#4ADE80', '#FBBF24', '#8B5CF6', '#EC4899',
+                                '#14B8A6', '#FB923C', '#22C55E',
+                                '#6366F1', '#DB2777', '#7C3AED', '#06B6D4'
                             ],
                             height=350
-                            
                         ))
 
-                    # 9️⃣ Issue Type → BAR (VERTICAL) - IMPORTANT FIX
+                    # 9️⃣ Issue Type → BAR (VERTICAL)
                     if issue_type_distribution:
                         charts.append(build_chart(
                             chart_id="issue_type",
@@ -1388,12 +1977,13 @@ class SocialMediaDailyView(APIView):
                             title="Issue Type Distribution",
                             tooltip="Types of issues reported",
                             icon="bi-exclamation-triangle",
-                            layout="vertical",      # ✅ Vertical layout
+                            drill_key="issue_type",
+                            layout="vertical",
                             color="#EF4444",
-                            height=350,             # ✅ Number, not string!
-                            x_label="Count",  # ✅ Custom X-axis label (bottom)
+                            height=350,
+                            x_label="Count",
                             y_label="Issues",
-                            margin={ "top": 10, "right": 0, "left": 30, "bottom": 10}               # ✅ Custom Y-axis label (left)
+                            margin={"top": 10, "right": 0, "left": 30, "bottom": 10}
                         ))
 
                     # 🔟 Journey Sentiment → STACKED BAR
@@ -1414,9 +2004,9 @@ class SocialMediaDailyView(APIView):
                                 {"key": "negative", "name": "Negative", "color": "#f65656"},
                             ],
                             height=300,
-                            x_label="Journey Stage",     # ✅ Custom X-axis label
-                            y_label="Count" ,  # ✅ Custom Y-axis label
-                            margin={ "top": 30, "right": 0, "left": 20, "bottom": 14}
+                            x_label="Journey Stage",
+                            y_label="Count",
+                            margin={"top": 30, "right": 0, "left": 20, "bottom": 14}
                         ))
 
                     # 1️⃣1️⃣ Resolution Status → BAR
@@ -1431,17 +2021,18 @@ class SocialMediaDailyView(APIView):
                             tooltip="Current resolution status",
                             icon="bi-check-circle",
                             layout="horizontal",
+                            drill_key="resolution_status",
                             height=300,
-                            x_label="Resolution Status",  # ✅ Custom X-axis label
-                            y_label="Count",    # ✅ Custom Y-axis label
-                            margin={ "top": 30, "right": 0, "left":20, "bottom": 14},
+                            x_label="Resolution Status",
+                            y_label="Count",
+                            margin={"top": 30, "right": 0, "left": 20, "bottom": 14},
                             color={
-                                    "resolved": "#10b95d",
-                                    "pending": "#3B82F6",
-                                    "unresolved": "#f65656",
-                                    "partially_resolved": "#767676",
-                                    "not_applicable": "#9ca3af"
-                                },
+                                "resolved": "#10b95d",
+                                "pending": "#3B82F6",
+                                "unresolved": "#f65656",
+                                "partially_resolved": "#767676",
+                                "not_applicable": "#9ca3af"
+                            },
                         ))
 
                     # 1️⃣2️⃣ Value for Money → BAR
@@ -1453,10 +2044,11 @@ class SocialMediaDailyView(APIView):
                             x_key="name",
                             y_key="value",
                             title="Value for Money",
+                            drill_key="value_for_money",
                             tooltip="Perceived value assessment",
                             icon="bi-cash",
                             layout="horizontal",
-                            color = {
+                            color={
                                 "very_poor": "#f65656",
                                 "poor": "#f97316",
                                 "fair": "#eab308",
@@ -1465,9 +2057,9 @@ class SocialMediaDailyView(APIView):
                                 "not_applicable": "#767676",
                             },
                             height=300,
-                            x_label="Values",    
-                            y_label="Count" ,
-                            margin={ "top": 30, "right": 0, "left":20, "bottom": 14}
+                            x_label="Values",
+                            y_label="Count",
+                            margin={"top": 30, "right": 0, "left": 20, "bottom": 14}
                         ))
 
                     # 1️⃣3️⃣ Churn Risk → PIE
@@ -1478,6 +2070,7 @@ class SocialMediaDailyView(APIView):
                             data=churn_risk,
                             x_key="name",
                             y_key="value",
+                            drill_key="churn_risk",
                             title="Churn Risk",
                             tooltip="Customer churn risk levels",
                             icon="bi-exclamation-circle",
@@ -1488,7 +2081,6 @@ class SocialMediaDailyView(APIView):
                                 "not_applicable": "#9ca3af",
                             },
                             height=280
-                            # Pie charts don't need axis labels
                         ))
 
                     # Prepare top advocates/detractors for frontend
@@ -1524,6 +2116,9 @@ class SocialMediaDailyView(APIView):
                 },
                 status=500
             )
+
+
+
 
 
 
