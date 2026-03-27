@@ -60,3 +60,14 @@
   font-size: 13px;   /* 👈 reduce size */
   font-weight: 500;  /* keeps medium weight */
 }
+
+/* Clickable rows */
+
+.audience-row--clickable {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.audience-row--clickable:hover {
+  background: #f3f0ff !important;
+}

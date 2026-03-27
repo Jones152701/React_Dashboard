@@ -34,9 +34,9 @@ const AudienceTab: React.FC<Props> = ({ data, loading, onDrillDown }) => {
   const advocates = data?.top_advocates || [];
   const detractors = data?.top_detractors || [];
 
-  /* ---------------- TABLE ---------------- */
+  /* ---------------- TABLE (CLICKABLE ROWS) ---------------- */
 
-  const renderUserTable = (users: UserData[]) => {
+  const renderUserTable = (users: UserData[], drillKey: string) => {
     if (!users.length) {
       return <div className="text-center py-4 text-muted">No data</div>;
     }
@@ -52,7 +52,20 @@ const AudienceTab: React.FC<Props> = ({ data, loading, onDrillDown }) => {
           const firstLetter = user.username?.charAt(0).toUpperCase() || "?";
 
           return (
-            <div key={i} className="audience-row d-flex align-items-center">
+            <div
+              key={i}
+              className={`audience-row d-flex align-items-center ${onDrillDown ? "audience-row--clickable" : ""}`}
+              onClick={() => {
+                if (onDrillDown) {
+                  onDrillDown({
+                    type: "bar",
+                    key: drillKey,
+                    value: user.username,
+                    data: user,
+                  });
+                }
+              }}
+            >
               <div className="col-user d-flex align-items-center gap-2">
                 <div className="avatar-circle">{firstLetter}</div>
 
@@ -125,7 +138,7 @@ const AudienceTab: React.FC<Props> = ({ data, loading, onDrillDown }) => {
             icon="bi bi-megaphone-fill text-success"
             loading={loading}
           >
-            {renderUserTable(advocates)}
+            {renderUserTable(advocates, "advocate")}
           </ChartCard>
         </div>
 
@@ -137,7 +150,7 @@ const AudienceTab: React.FC<Props> = ({ data, loading, onDrillDown }) => {
             icon="bi bi-chat-left-dots-fill text-danger"
             loading={loading}
           >
-            {renderUserTable(detractors)}
+            {renderUserTable(detractors, "detractor")}
           </ChartCard>
         </div>
 

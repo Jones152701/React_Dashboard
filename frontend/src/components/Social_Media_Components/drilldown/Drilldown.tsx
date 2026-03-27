@@ -1,11 +1,10 @@
 import React from "react";
 import ChartRenderer from "../../ChartRender";
 import WordCloudVisx from "../../../graphs/WordCloud";
-import Cards from "./cards/cards";
 import type { DrillState } from "../../../types/drilldown";
-import "./drilldown.css";
+import "./Drilldown.css";
 
-// ✅ IMPORT REVIEW STYLES + ASSETS
+// Review assets
 import "../ReviewTab/ReviewTab.css";
 import postive from "../../../assets/images/positive.png";
 import negative from "../../../assets/images/negative.png";
@@ -35,10 +34,10 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
 
   const sentimentEmoji = (sentiment?: string) => {
     if (sentiment === "positive")
-      return <img src={postive} width={50} height={50} alt="positive" />;
+      return <img src={postive} width={40} height={40} alt="positive" />;
     if (sentiment === "negative")
-      return <img src={negative} width={50} height={50} alt="negative" />;
-    return <img src={neutral} width={50} height={50} alt="neutral" />;
+      return <img src={negative} width={40} height={40} alt="negative" />;
+    return <img src={neutral} width={40} height={40} alt="neutral" />;
   };
 
   const formatDate = (date: string) =>
@@ -47,6 +46,10 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
       month: "short",
       year: "numeric",
     });
+
+  const contextLabel = drill.context
+    ? `${String(drill.context.key).replace(/_/g, " ")} → ${String(drill.context.value)}`
+    : "";
 
   /* ================= RENDER ================= */
 
@@ -58,14 +61,18 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
       >
         {/* ================= HEADER ================= */}
         <div className="drilldown-header">
-          <div>
+          <div className="drilldown-header-text">
             <h3>
+              <i className="bi bi-graph-up-arrow me-2"></i>
               Drilldown Analysis
-              {drill.context &&
-                ` of ${drill.context.key}: ${String(
-                  drill.context.value
-                )}`}
             </h3>
+
+            {drill.context && (
+              <div className="drilldown-badge">
+                <i className="bi bi-funnel-fill"></i>
+                {contextLabel}
+              </div>
+            )}
           </div>
 
           <button className="drilldown-close" onClick={onClose}>
@@ -79,8 +86,12 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
           {/* ================= LOADING ================= */}
           {drill.loading && (
             <div className="drilldown-loading">
-              <div className="spinner"></div>
-              <p>Loading drilldown data...</p>
+              <div className="drill-loader">
+                <div className="drill-loader-dot"></div>
+                <div className="drill-loader-dot"></div>
+                <div className="drill-loader-dot"></div>
+              </div>
+              <p>Fetching insights…</p>
             </div>
           )}
 
@@ -89,59 +100,56 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
             <>
               {/* ================= KPI CARDS ================= */}
               {drill.data.cards && (
-                <div className="drilldown-cards">
-                  <Cards
-                    data={[
+                <div className="drilldown-cards drill-section">
+                  <div className="drill-kpi-grid">
+                    {[
                       {
                         title: "Total Reviews",
-                        value:
-                          drill.data.cards.total_reviews?.toLocaleString() ||
-                          "0",
+                        value: drill.data.cards.total_reviews?.toLocaleString() || "0",
                       },
                       {
                         title: "Avg Rating",
-                        value: `${(
-                          drill.data.cards.avg_rating || 0
-                        ).toFixed(1)} /5`,
+                        value: `${(drill.data.cards.avg_rating || 0).toFixed(1)} /5`,
                       },
                       {
-                        title: "Avg Sentiment Score",
-                        value: (
-                          drill.data.cards.avg_sentiment_score || 0
-                        ).toFixed(2),
+                        title: "Avg Sentiment",
+                        value: (drill.data.cards.avg_sentiment_score || 0).toFixed(2),
                       },
                       {
-                        title: "Percentage of Total",
-                        value: `${
-                          drill.data.cards.percentage_of_total || 0
-                        }%`,
+                        title: "% of Total",
+                        value: `${drill.data.cards.percentage_of_total || 0}%`,
                       },
-                    ]}
-                  />
+                    ].map((kpi, idx) => (
+                      <div key={idx} className="drill-kpi-card">
+                        <div className="drill-kpi-label">{kpi.title}</div>
+                        <div className="drill-kpi-value">{kpi.value}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
               {/* ================= CHARTS ================= */}
               {drill.data.charts?.map((chart: any, idx: number) => (
-                <div key={idx} className="drilldown-chart">
+                <div key={idx} className="drilldown-chart drill-section">
                   <h4 className="drilldown-chart-title">
                     <i
                       className={`bi ${
                         chart.icon || "bi-bar-chart-fill"
-                      } drilldown-chart-icon me-2`}
+                      } drilldown-chart-icon`}
                     ></i>
                     {chart.title}
                   </h4>
 
                   <div className="p-4">
                     <ChartRenderer
-                    chart={chart}
-                    selectedValue={drill.context?.value}
-                    drillKey={chart?.config?.drillKey}
-                    onDrillDown={(event) => {
-                      console.log("Nested drill:", event);
-                    }}
-                  />
+                      chart={chart}
+                      selectedValue={drill.context?.value}
+                      drillKey={chart?.config?.drillKey}
+                      onDrillDown={(event) => {
+                        console.log("Nested drill:", event);
+                      }}
+                    />
                   </div>
                 </div>
               ))}
@@ -149,9 +157,9 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
               {/* ================= WORD CLOUD ================= */}
               {drill.data.wordcloud &&
                 Object.keys(drill.data.wordcloud).length > 0 && (
-                  <div className="drilldown-chart">
+                  <div className="drilldown-chart drill-section">
                     <h4 className="drilldown-chart-title">
-                      <i className="bi bi-cloud drilldown-chart-icon me-2"></i>
+                      <i className="bi bi-cloud drilldown-chart-icon"></i>
                       Key Topics
                     </h4>
 
@@ -169,69 +177,77 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
 
               {/* ================= REVIEWS ================= */}
               {drill.data.reviews?.length > 0 && (
-                <div className="drilldown-reviews">
-                  <h4>
-                    Reviews ({drill.data.reviews.length})
-                  </h4>
+                <div className="drilldown-reviews drill-section">
+                  <div className="drilldown-reviews-header">
+                    <i className="bi bi-chat-square-text drilldown-chart-icon"></i>
+                    Reviews
+                    <span className="review-count-badge">
+                      {drill.data.reviews.length}
+                    </span>
+                  </div>
 
                   {drill.data.reviews.map((review: any, index: number) => {
                     const sentimentClass =
                       review.sentiment?.toLowerCase() || "neutral";
 
                     return (
-                      <div key={index} className="review-item">
+                      <div key={index} className="drill-review-item">
+                        {/* Accent bar */}
                         <div
-                          className={`review-bar ${sentimentClass}`}
+                          className={`drill-review-accent ${sentimentClass}`}
                         ></div>
 
-                        <div className="review-emoji">
-                          {sentimentEmoji(review.sentiment)}
-                        </div>
+                        <div className="d-flex">
+                          {/* Emoji */}
+                          <div className="drill-review-emoji">
+                            {sentimentEmoji(review.sentiment)}
+                          </div>
 
-                        <div className="flex-grow-1">
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <div className="d-flex align-items-center">
-                              <strong>{review.username}</strong>
+                          {/* Content */}
+                          <div className="flex-grow-1">
+                            {/* Top row */}
+                            <div className="drill-review-top">
+                              <div className="drill-review-user">
+                                <strong>{review.username}</strong>
+                                <span className="drill-review-platform">
+                                  {review.platform}
+                                </span>
+                              </div>
 
-                              <span className="platform-badge badge bg-secondary ms-2">
-                                {review.platform}
+                              <span
+                                className={`drill-sentiment-pill ${sentimentClass}`}
+                              >
+                                {review.sentiment}
                               </span>
                             </div>
 
-                            <span
-                              className={`sentiment-pill ${sentimentClass}`}
-                            >
-                              {review.sentiment}
-                            </span>
-                          </div>
-
-                          <div className="review-text">
-                            {review.message}
-                          </div>
-
-                          <div className="review-footer">
-                            <div className="review-meta">
-                              <strong>
-                                {formatDate(review.created_date)}
-                              </strong>{" "}
-                              –
-                              <strong>
-                                {review.country}
-                                <span className="review-stars ms-1">
-                                  {renderStars(review.rating)}
-                                </span>
-                              </strong>
+                            {/* Body */}
+                            <div className="drill-review-text">
+                              {review.message}
                             </div>
 
-                            {review.link && (
-                              <a
-                                href={review.link}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                View Original
-                              </a>
-                            )}
+                            {/* Footer */}
+                            <div className="drill-review-footer">
+                              <div className="drill-review-meta">
+                                <span>{formatDate(review.created_date)}</span>
+                                <span>·</span>
+                                <span>{review.country}</span>
+                                <span className="drill-review-stars">
+                                  {renderStars(review.rating)}
+                                </span>
+                              </div>
+
+                              {review.link && (
+                                <a
+                                  href={review.link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="drill-review-link"
+                                >
+                                  View Original →
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -239,6 +255,16 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
                   })}
                 </div>
               )}
+
+              {/* Empty state */}
+              {!drill.data.cards &&
+                !drill.data.charts?.length &&
+                !drill.data.reviews?.length && (
+                  <div className="drill-empty drill-section">
+                    <i className="bi bi-inbox"></i>
+                    <p>No drilldown data available for this selection.</p>
+                  </div>
+                )}
             </>
           )}
         </div>

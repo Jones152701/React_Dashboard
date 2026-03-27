@@ -1,57 +1,43 @@
-/* drilldown.css - COMPLETE FIXED VERSION */
+/* drilldown.css — Premium Redesign */
 
 /* ================= OVERLAY ================= */
 .drilldown-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.45);
   z-index: 4000;
   display: flex;
   justify-content: flex-end;
   align-items: stretch;
-  backdrop-filter: blur(2px);
-  animation: fadeIn 0.2s ease-out;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: overlayFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-.drilldown-container {
-  position: fixed;
-  top: 0;
-  right: 0;
-  height: 100vh;
- 
-
-  z-index: 5000; /* 🔥 MUST be highest */
-}
 /* ================= SIDEBAR ================= */
 .drilldown-sidebar {
-  width: 50%;
-  max-width: 60%;
-  /* min-width: 380px; */
+  width: 52%;
+  max-width: 720px;
+  min-width: 340px;
   height: 100vh;
-  background: #ffffff;
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+  background: #f8f9fb;
+  box-shadow:
+    -8px 0 40px rgba(0, 0, 0, 0.12),
+    -1px 0 0 rgba(123, 97, 255, 0.08);
   display: flex;
   flex-direction: column;
-  animation: slideIn 0.3s ease-out;
+  animation: sidebarSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
 }
 
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
+@keyframes sidebarSlideIn {
+  from { transform: translateX(100%); opacity: 0.5; }
+  to   { transform: translateX(0);    opacity: 1;   }
 }
 
 /* ================= HEADER ================= */
@@ -59,70 +45,137 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #ffffff;
+  padding: 22px 28px;
+  background: linear-gradient(135deg, #7B61FF 0%, #6C5CE7 55%, #a78bfa 100%);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle decorative glow in header */
+.drilldown-header::before {
+  content: "";
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+  top: -80px;
+  right: 40px;
+  pointer-events: none;
+}
+
+.drilldown-header-text h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.drilldown-header-text .drilldown-context {
+  margin: 4px 0 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 400;
+}
+
+.drilldown-header-text .drilldown-context strong {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Badge pill for context */
+.drilldown-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.drilldown-badge i {
+  font-size: 12px;
+}
+
+/* Close button */
+.drilldown-close {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #ffffff;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
   flex-shrink: 0;
 }
 
-.drilldown-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #111827;
-}
-
-.drilldown-context {
-  margin: 4px 0 0 0;
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.drilldown-context strong {
-  color: #3b82f6;
-  font-weight: 600;
-}
-
-.drilldown-close {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: #6b7280;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: all 0.2s;
-  line-height: 1;
-}
-
 .drilldown-close:hover {
-  background: #f3f4f6;
-  color: #111827;
+  background: rgba(255, 255, 255, 0.3);
+  transform: rotate(90deg);
 }
 
 /* ================= CONTENT ================= */
 .drilldown-content {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 24px 28px 32px;
+  scroll-behavior: smooth;
 }
 
 /* Custom scrollbar */
 .drilldown-content::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .drilldown-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: transparent;
 }
 
 .drilldown-content::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: #d1d5db;
+  border-radius: 10px;
 }
 
 .drilldown-content::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #9ca3af;
+}
+
+/* ================= STAGGER ANIMATION ================= */
+/* Each major section uses a staggered fade-in-up */
+.drill-section {
+  animation: sectionFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.drill-section:nth-child(1) { animation-delay: 0.08s; }
+.drill-section:nth-child(2) { animation-delay: 0.16s; }
+.drill-section:nth-child(3) { animation-delay: 0.24s; }
+.drill-section:nth-child(4) { animation-delay: 0.32s; }
+.drill-section:nth-child(5) { animation-delay: 0.40s; }
+.drill-section:nth-child(6) { animation-delay: 0.48s; }
+
+@keyframes sectionFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ================= LOADING STATE ================= */
@@ -131,73 +184,143 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  color: #6b7280;
+  padding: 80px 20px;
+  gap: 20px;
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid #e5e7eb;
-  border-top-color: #3b82f6;
+/* Pulse-dot loader */
+.drill-loader {
+  display: flex;
+  gap: 8px;
+}
+
+.drill-loader-dot {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-bottom: 16px;
+  background: #7B61FF;
+  animation: dotPulse 1.4s ease-in-out infinite;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+.drill-loader-dot:nth-child(2) { animation-delay: 0.2s; }
+.drill-loader-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotPulse {
+  0%, 80%, 100% {
+    transform: scale(0.4);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
-/* ================= CARDS SECTION ================= */
+.drilldown-loading p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* ================= KPI CARDS ================= */
 .drilldown-cards {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
-.drilldown-cards .row {
-  margin: 0 -12px;
+.drill-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
 }
 
-.drilldown-cards [class*="col-"] {
-  padding: 0 12px;
-  margin-bottom: 24px;
-}
-
-/* Card styling - matches your existing Cards component */
-.drilldown-cards .card {
+.drill-kpi-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 18px 20px;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  transition: all 0.2s;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.drilldown-cards .card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+.drill-kpi-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  border-radius: 4px 0 0 4px;
+  background: linear-gradient(180deg, #7B61FF 0%, #a78bfa 100%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.drill-kpi-card:hover {
+  border-color: #c4b5fd;
+  box-shadow: 0 4px 16px rgba(123, 97, 255, 0.08);
   transform: translateY(-2px);
 }
 
-/* ================= CHARTS SECTION ================= */
+.drill-kpi-card:hover::before {
+  opacity: 1;
+}
+
+.drill-kpi-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.drill-kpi-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1e1b4b;
+}
+
+/* ================= CHART SECTION ================= */
 .drilldown-chart {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 14px;
   border: 1px solid #e5e7eb;
   overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.drilldown-chart:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
 .drilldown-chart-title {
   margin: 0;
-  padding: 16px 20px 12px 20px;
-  font-size: 18px;
+  padding: 16px 22px 14px;
+  font-size: 0.95rem;
   font-weight: 600;
   color: #374151;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fafbfc;
+  border-bottom: 1px solid #f0f1f4;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drilldown-chart-icon {
+  font-size: 18px;
+  color: #7B61FF;
 }
 
 .drilldown-chart > div:last-child {
   padding: 16px;
+}
+
+/* Fix for Recharts */
+.drilldown-chart .recharts-wrapper {
+  margin: 0 auto;
 }
 
 /* ================= WORD CLOUD ================= */
@@ -208,136 +331,6 @@
   justify-content: center;
 }
 
-/* ================= REVIEWS SECTION ================= */
-.drilldown-reviews {
-  margin-top: 24px;
-  background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  overflow: hidden;
-}
-
-.drilldown-reviews h4 {
-  margin: 0;
-  padding: 16px 20px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #374151;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fafbfc;
-}
-
-.review-item {
-  padding: 16px 20px;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background 0.2s;
-}
-
-.review-item:last-child {
-  border-bottom: none;
-}
-
-.review-item:hover {
-  background: #fafbfc;
-}
-
-.review-item strong {
-  color: #111827;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.review-item p {
-  margin: 8px 0 0 0;
-  font-size: 0.875rem;
-  color: #4b5563;
-  line-height: 1.5;
-}
-
-/* ================= RESPONSIVE DESIGN ================= */
-@media (max-width: 768px) {
-  .drilldown-sidebar {
-    width: 100%;
-    min-width: 100%;
-    max-width: 100%;
-  }
-  
-  .drilldown-header {
-    padding: 16px 20px;
-  }
-  
-  .drilldown-content {
-    padding: 16px 20px;
-  }
-  
-  .drilldown-chart-title {
-    padding: 12px 16px;
-  }
-  
-  .drilldown-chart > div:last-child {
-    padding: 12px;
-  }
-  
-  .review-item {
-    padding: 12px 16px;
-  }
-}
-
-/* ================= UTILITY CLASSES ================= */
-.text-muted {
-  color: #6b7280;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.py-4 {
-  padding-top: 1rem;
-  padding-bottom: 1rem;
-}
-
-/* ================= CARD VARIANTS ================= */
-/* These match your Cards component styling */
-.card-positive {
-  border-left: 4px solid #10b981;
-}
-
-.card-neutral {
-  border-left: 4px solid #6b7280;
-}
-
-.card-negative {
-  border-left: 4px solid #ef4444;
-}
-
-/* ================= ANIMATIONS ================= */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-.drilldown-loading .spinner {
-  animation: spin 0.8s linear infinite;
-}
-
-/* Hover effects for interactive elements */
-.drilldown-chart,
-.drilldown-reviews,
-.drilldown-cards .card {
-  transition: all 0.2s ease;
-}
-
-/* Ensure proper spacing for ChartRenderer content */
-.drilldown-chart .recharts-wrapper {
-  margin: 0 auto;
-}
-
-/* Fix for WordCloud height */
 .drilldown-chart div[style*="height: 280px"] {
   min-height: 280px;
   display: flex;
@@ -345,8 +338,218 @@
   justify-content: center;
 }
 
+/* ================= REVIEWS SECTION ================= */
+.drilldown-reviews {
+  margin-top: 4px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
 
-.drilldown-chart-icon {
-  font-size: 20px;
-  color: #6366F1; /* ✅ Updated color */
+.drilldown-reviews-header {
+  margin: 0;
+  padding: 16px 22px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #f0f1f4;
+  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drilldown-reviews-header .review-count-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #ede9fe;
+  color: #7B61FF;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+
+.drill-review-item {
+  padding: 18px 22px;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background 0.2s ease;
+  position: relative;
+}
+
+.drill-review-item:last-child {
+  border-bottom: none;
+}
+
+.drill-review-item:hover {
+  background: #faf9ff;
+}
+
+/* Colored left accent bar for sentiment */
+.drill-review-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3.5px;
+  border-radius: 0 3px 3px 0;
+}
+
+.drill-review-accent.positive { background: #10b981; }
+.drill-review-accent.negative { background: #ef4444; }
+.drill-review-accent.neutral  { background: #9ca3af; }
+
+/* Review top row */
+.drill-review-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.drill-review-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.drill-review-user strong {
+  font-size: 0.88rem;
+  color: #1f2937;
+}
+
+.drill-review-platform {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Sentiment pill */
+.drill-sentiment-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 12px;
+  border-radius: 20px;
+  text-transform: capitalize;
+}
+
+.drill-sentiment-pill.positive {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.drill-sentiment-pill.negative {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.drill-sentiment-pill.neutral {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+/* Review body */
+.drill-review-text {
+  font-size: 0.84rem;
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+/* Review footer */
+.drill-review-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  color: #9ca3af;
+}
+
+.drill-review-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.drill-review-stars {
+  color: #f59e0b;
+  letter-spacing: 1px;
+}
+
+.drill-review-link {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7B61FF;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.drill-review-link:hover {
+  color: #6C5CE7;
+  text-decoration: underline;
+}
+
+/* Emoji sizing */
+.drill-review-emoji {
+  flex-shrink: 0;
+  margin-right: 14px;
+}
+
+.drill-review-emoji img {
+  width: 40px;
+  height: 40px;
+}
+
+/* ================= EMPTY STATE ================= */
+.drill-empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: #9ca3af;
+}
+
+.drill-empty i {
+  font-size: 48px;
+  margin-bottom: 12px;
+  color: #d1d5db;
+}
+
+.drill-empty p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+  .drilldown-sidebar {
+    width: 100%;
+    min-width: 100%;
+    max-width: 100%;
+  }
+
+  .drilldown-header {
+    padding: 18px 20px;
+  }
+
+  .drilldown-content {
+    padding: 18px 16px;
+  }
+
+  .drill-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .drill-review-item {
+    padding: 14px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .drill-kpi-grid {
+    grid-template-columns: 1fr;
+  }
 }
