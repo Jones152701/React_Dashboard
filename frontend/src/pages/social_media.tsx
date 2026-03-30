@@ -152,10 +152,7 @@ function SocialMedia() {
         params.append("sentiments", filters.sentiments.join(","));
       }
 
-      // ✅ OPTIONAL EXTRA CONTEXT
-      if (event.data) {
-        params.append("drill_context", JSON.stringify(event.data));
-      }
+     
 
       const url = `http://localhost:8000/social_media/?${params.toString()}`;
       console.log("Drilldown API:", url);

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import ChartRenderer from "../../ChartRender";
 import WordCloudVisx from "../../../graphs/WordCloud";
 import type { DrillState } from "../../../types/drilldown";
@@ -16,7 +16,34 @@ interface DrilldownProps {
 }
 
 const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
-  if (!drill.open) return null;
+
+  /* ── Delayed unmount for exit animation ── */
+  const [visible, setVisible] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    if (drill.open) {
+      setVisible(true);
+      setIsClosing(false);
+    } else if (visible) {
+      // Play close animation, then unmount
+      setIsClosing(true);
+      const timer = setTimeout(() => {
+        setVisible(false);
+        setIsClosing(false);
+      }, 400); // matches CSS animation duration
+      return () => clearTimeout(timer);
+    }
+  }, [drill.open]);
+
+  const handleClose = useCallback(() => {
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, 380);
+  }, [onClose]);
+
+  if (!visible) return null;
 
   const convertWordCloud = (obj: Record<string, number>) => {
     return Object.entries(obj || {}).map(([text, value]) => ({
@@ -54,9 +81,12 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
   /* ================= RENDER ================= */
 
   return (
-    <div className="drilldown-overlay" onClick={onClose}>
+    <div
+      className={`drilldown-overlay ${isClosing ? "drilldown-overlay--closing" : ""}`}
+      onClick={handleClose}
+    >
       <div
-        className="drilldown-sidebar"
+        className={`drilldown-sidebar ${isClosing ? "drilldown-sidebar--closing" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ================= HEADER ================= */}
@@ -75,7 +105,7 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
             )}
           </div>
 
-          <button className="drilldown-close" onClick={onClose}>
+          <button className="drilldown-close" onClick={handleClose}>
             ✕
           </button>
         </div>

@@ -9,6 +9,7 @@ interface Props {
   highlight?: "green" | "red" | "default";
   showStars?: boolean;
   loading?: boolean;
+  onClick?: () => void;
 }
 
 const Cards: React.FC<Props> = ({
@@ -19,6 +20,7 @@ const Cards: React.FC<Props> = ({
   highlight = "default",
   showStars = false,
   loading = false,
+  onClick,
 }) => {
   const isPositive = percentage > 0;
   const isNegative = percentage < 0;
@@ -81,7 +83,7 @@ const Cards: React.FC<Props> = ({
   /* ── Normal state ── */
 
   return (
-    <div className="h-100 shadow-sm rounded-3 bg-white" style={{ cursor: "pointer" }}>
+    <div className={`h-100 shadow-sm rounded-3 bg-white ${onClick ? "kpi-card-clickable" : ""}`} style={{ cursor: onClick ? "pointer" : "default" }} onClick={onClick}>
       <div className="d-flex align-items-center p-3">
 
         {/* LEFT → EXACT 60% */}
@@ -137,4 +139,4 @@ const Cards: React.FC<Props> = ({
   );
 };
 
-export default Cards;
+export default Cards;

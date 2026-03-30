@@ -423,6 +423,14 @@ class SocialMediaDailyView(APIView):
         drill_key = request.GET.get("drill_key", "")      # e.g., 'platform', 'country', 'sentiment'
         drill_value = request.GET.get("drill_value", "")  # e.g., 'twitter', 'US', 'positive'
 
+        # ✅ ADD THIS BLOCK HERE
+        INVALID_DRILL_KEYS = ["total_reviews", "avg_rating"]
+
+        if drill_key in INVALID_DRILL_KEYS:
+            print(f"⚠️ Ignoring invalid drill key: {drill_key}")
+            drill_key = None
+            drill_value = None
+
         # =============== DEBUG PRINT ===============
         print("\n===== REQUEST DEBUG =====")
         print(f"Request Type: {request_type}")
@@ -484,8 +492,8 @@ class SocialMediaDailyView(APIView):
                 "platform": "platform",
                 "country": "country", 
                 "sentiment": "sentiment",
-                "segment": "sentiment",  # ✅ FIX: Map frontend 'segment' to database 'sentiment'
-                "text": "message",       # ✅ NEW: Map frontend 'text' to database 'message'
+                "segment": "sentiment",  
+                "text": "message",       
                 "primary_mention": "primary_mention",
                 "issue_type": "issue_type",
                 "journey_stage": "journey_stage",
@@ -544,8 +552,7 @@ class SocialMediaDailyView(APIView):
                     current_to_str = current_to.strftime("%Y-%m-%d")
 
 
-                # =============== FOR DRILLDOWN REQUESTS - RETURN MINI-DASHBOARD ===============
-
+              
                 # =============== FOR DRILLDOWN REQUESTS - RETURN MINI-DASHBOARD ===============
                 if is_drilldown_request:
                     
@@ -730,228 +737,8 @@ class SocialMediaDailyView(APIView):
                             import traceback
                             traceback.print_exc()
                     
-                    # ✅ Handle drill context (additional filters from charts)
-                    drill_context = request.GET.get("drill_context")
-                    
-                    if drill_context:
-                        try:
-                            import json
-                            context_data = json.loads(drill_context)
-                            
-                            print(f"🔍 Drill Context Received: {context_data}")
-                            
-                            # ✅ Handle DATE only if valid (YYYY-MM-DD format)
-                            if "date" in context_data and is_valid_date(context_data["date"]):
-                                # Rebuild arrays, removing existing date filters
-                                new_filters = []
-                                new_params = []
-                                
-                                for f, p in zip(drill_filters, drill_filter_params):
-                                    if "DATE(created_date)" not in f:
-                                        new_filters.append(f)
-                                        new_params.append(p)
-                                
-                                removed_count = len(drill_filters) - len(new_filters)
-                                if removed_count > 0:
-                                    print(f"🔄 Removed {removed_count} existing date filter(s)")
-                                
-                                drill_filters = new_filters
-                                drill_filter_params = new_params
-                                
-                                drill_filters.append("DATE(created_date) = %s")
-                                drill_filter_params.append(context_data["date"])
-                                print(f"✅ Added DATE filter: {context_data['date']}")
-                            
-                            # ✅ Handle day (weekday) filter from context
-                            if "day" in context_data and context_data["day"] and drill_key != "day":
-                                # Convert weekday name to number
-                                day_num = convert_weekday_format(context_data["day"])
-                                
-                                if day_num is not None:
-                                    # Remove existing weekday filters
-                                    new_filters = []
-                                    new_params = []
-                                    
-                                    for f, p in zip(drill_filters, drill_filter_params):
-                                        if "EXTRACT(DOW" not in f:
-                                            new_filters.append(f)
-                                            new_params.append(p)
-                                    
-                                    removed_count = len(drill_filters) - len(new_filters)
-                                    if removed_count > 0:
-                                        print(f"🔄 Removed {removed_count} existing weekday filter(s)")
-                                    
-                                    drill_filters = new_filters
-                                    drill_filter_params = new_params
-                                    
-                                    drill_filters.append("EXTRACT(DOW FROM created_date) = %s")
-                                    drill_filter_params.append(day_num)
-                                    print(f"✅ Added weekday filter: {context_data['day']} → {day_num}")
-                            
-                            # ✅ Handle hour filter from context
-                            if "hour" in context_data and context_data["hour"] and drill_key != "hour":
-                                # Convert hour format
-                                hour_int = convert_hour_format(context_data["hour"])
-                                
-                                if hour_int is not None:
-                                    # Remove existing hour filters
-                                    new_filters = []
-                                    new_params = []
-                                    
-                                    for f, p in zip(drill_filters, drill_filter_params):
-                                        if "EXTRACT(HOUR" not in f:
-                                            new_filters.append(f)
-                                            new_params.append(p)
-                                    
-                                    removed_count = len(drill_filters) - len(new_filters)
-                                    if removed_count > 0:
-                                        print(f"🔄 Removed {removed_count} existing hour filter(s)")
-                                    
-                                    drill_filters = new_filters
-                                    drill_filter_params = new_params
-                                    
-                                    drill_filters.append("EXTRACT(HOUR FROM created_date) = %s")
-                                    drill_filter_params.append(hour_int)
-                                    print(f"✅ Added hour filter: {context_data['hour']} → {hour_int}")
-                            
-                            # ✅ Handle journey stage filter
-                            if "stage" in context_data and context_data["stage"]:
-                                # Rebuild arrays, removing existing stage filters
-                                new_filters = []
-                                new_params = []
-                                
-                                for f, p in zip(drill_filters, drill_filter_params):
-                                    if "journey_stage" not in f:
-                                        new_filters.append(f)
-                                        new_params.append(p)
-                                
-                                removed_count = len(drill_filters) - len(new_filters)
-                                if removed_count > 0:
-                                    print(f"🔄 Removed {removed_count} existing stage filter(s)")
-                                
-                                drill_filters = new_filters
-                                drill_filter_params = new_params
-                                
-                                drill_filters.append("LOWER(journey_stage) = %s")
-                                drill_filter_params.append(context_data["stage"].lower())
-                                print(f"✅ Added stage filter: {context_data['stage']}")
-                            
-                            # ✅ Handle segment filter
-                            if "segment" in context_data and context_data["segment"] and drill_key != "segment":
-                                # Rebuild arrays, removing existing sentiment filters
-                                new_filters = []
-                                new_params = []
-                                
-                                for f, p in zip(drill_filters, drill_filter_params):
-                                    if "sentiment" not in f:
-                                        new_filters.append(f)
-                                        new_params.append(p)
-                                
-                                removed_count = len(drill_filters) - len(new_filters)
-                                if removed_count > 0:
-                                    print(f"🔄 Removed {removed_count} existing sentiment filter(s)")
-                                
-                                drill_filters = new_filters
-                                drill_filter_params = new_params
-                                
-                                drill_filters.append("LOWER(sentiment) = %s")
-                                drill_filter_params.append(context_data["segment"].lower())
-                                print(f"✅ Added segment filter: {context_data['segment']}")
-                            
-                            # ✅ Handle text filter from context (for word cloud)
-                            if "text" in context_data and context_data["text"] and drill_key != "text":
-                                # Rebuild arrays, removing existing message filters
-                                new_filters = []
-                                new_params = []
-                                
-                                for f, p in zip(drill_filters, drill_filter_params):
-                                    if "message" not in f:
-                                        new_filters.append(f)
-                                        new_params.append(p)
-                                
-                                removed_count = len(drill_filters) - len(new_filters)
-                                if removed_count > 0:
-                                    print(f"🔄 Removed {removed_count} existing message filter(s)")
-                                
-                                drill_filters = new_filters
-                                drill_filter_params = new_params
-                                
-                                drill_filters.append("LOWER(message) LIKE %s")
-                                drill_filter_params.append(f"%{context_data['text'].lower()}%")
-                                print(f"✅ Added text filter: {context_data['text']}")
-                            
-                            # ✅ Handle platform filter from context
-                            if "platform" in context_data and context_data["platform"] and drill_key != "platform":
-                                # Rebuild arrays, removing existing platform filters
-                                new_filters = []
-                                new_params = []
-                                
-                                for f, p in zip(drill_filters, drill_filter_params):
-                                    if "platform" not in f:
-                                        new_filters.append(f)
-                                        new_params.append(p)
-                                
-                                removed_count = len(drill_filters) - len(new_filters)
-                                if removed_count > 0:
-                                    print(f"🔄 Removed {removed_count} existing platform filter(s)")
-                                
-                                drill_filters = new_filters
-                                drill_filter_params = new_params
-                                
-                                drill_filters.append("LOWER(platform) = %s")
-                                drill_filter_params.append(context_data["platform"].lower())
-                                print(f"✅ Added platform filter: {context_data['platform']}")
-                            
-                            # ✅ Handle country filter from context
-                            if "country" in context_data and context_data["country"] and drill_key != "country":
-                                # Rebuild arrays, removing existing country filters
-                                new_filters = []
-                                new_params = []
-                                
-                                for f, p in zip(drill_filters, drill_filter_params):
-                                    if "country" not in f:
-                                        new_filters.append(f)
-                                        new_params.append(p)
-                                
-                                removed_count = len(drill_filters) - len(new_filters)
-                                if removed_count > 0:
-                                    print(f"🔄 Removed {removed_count} existing country filter(s)")
-                                
-                                drill_filters = new_filters
-                                drill_filter_params = new_params
-                                
-                                drill_filters.append("LOWER(country) = %s")
-                                drill_filter_params.append(context_data["country"].lower())
-                                print(f"✅ Added country filter: {context_data['country']}")
-                            
-                            # ✅ Handle sentiment filter from context
-                            if "sentiment" in context_data and context_data["sentiment"] and drill_key != "sentiment":
-                                # Rebuild arrays, removing existing sentiment filters
-                                new_filters = []
-                                new_params = []
-                                
-                                for f, p in zip(drill_filters, drill_filter_params):
-                                    if "sentiment" not in f:
-                                        new_filters.append(f)
-                                        new_params.append(p)
-                                
-                                removed_count = len(drill_filters) - len(new_filters)
-                                if removed_count > 0:
-                                    print(f"🔄 Removed {removed_count} existing sentiment filter(s)")
-                                
-                                drill_filters = new_filters
-                                drill_filter_params = new_params
-                                
-                                drill_filters.append("LOWER(sentiment) = %s")
-                                drill_filter_params.append(context_data["sentiment"].lower())
-                                print(f"✅ Added sentiment filter: {context_data['sentiment']}")
-                            
-                        except json.JSONDecodeError as e:
-                            print(f"⚠️ Invalid JSON in drill_context: {e}")
-                        except Exception as e:
-                            print(f"⚠️ Drill context parsing failed: {e}")
-                            import traceback
-                            traceback.print_exc()
+                   
+
                     
                     # ✅ Rebuild where_clause with drill filters
                     drill_where_clause = ""

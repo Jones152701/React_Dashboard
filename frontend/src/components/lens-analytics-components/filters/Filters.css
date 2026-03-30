@@ -7,20 +7,37 @@
   gap: 16px;
 
   width: 100%;
-  padding: 12px 16px;
+  padding: 14px 20px;
 
-  background: #f8f9fb;
-  border-radius: 8px;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 
-  position: sticky;   /* ✅ KEY */
-  top: 70px;          /* ✅ adjust based on header height */
+  position: sticky;
+  top: 70px;
   z-index: 1000;
+
+  /* Slide-down on load */
+  animation: filtersSlideDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes filtersSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ───────── TITLE (LEFT SIDE) ───────── */
 
 .filters-title {
-  flex: 0 0 auto; /* prevent full width */
+  flex: 0 0 auto;
+  animation: filterTitleFade 0.6s ease both;
 }
 
 .filters-title h3 {
@@ -30,67 +47,114 @@
   color: #2c2c2c;
 }
 
+@keyframes filterTitleFade {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* ───────── RIGHT SIDE (FILTERS WRAPPER) ───────── */
 
 .filters-right {
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  flex-wrap: nowrap; /* keep in one row */
+  flex-wrap: nowrap;
 }
 
-/* ───────── FILTER GROUP ───────── */
+/* ───────── FILTER GROUP — staggered entry ───────── */
 
-.filter-group {
+.filters-right .filter-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 160px;
+
+  animation: filterGroupEntry 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Stagger each filter group */
+.filters-right .filter-group:nth-child(1) { animation-delay: 0.08s; }
+.filters-right .filter-group:nth-child(2) { animation-delay: 0.16s; }
+.filters-right .filter-group:nth-child(3) { animation-delay: 0.24s; }
+.filters-right .filter-group:nth-child(4) { animation-delay: 0.32s; }
+.filters-right .filter-group:nth-child(5) { animation-delay: 0.40s; }
+
+@keyframes filterGroupEntry {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ───────── LABEL ───────── */
 
-.filter-label {
+.filters-container .filter-label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   color: #8a8f98;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  transition: color 0.2s ease;
 }
 
 /* ───────── INPUT / SELECT ───────── */
 
-.filter-select {
+.filters-container .filter-select {
   height: 38px;
-  padding: 6px 10px;
+  padding: 6px 12px;
 
-  border: 1px solid #dcdfe4;
-  border-radius: 8px;
+  border: 1.5px solid #dcdfe4;
+  border-radius: 10px;
   background: #fff;
 
   font-size: 14px;
   color: #2c2c2c;
 
   outline: none;
-  transition: all 0.2s ease;
+  cursor: pointer;
+
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Hover */
-.filter-select:hover {
-  border-color: #bfc5cc;
+.filters-container .filter-select:hover {
+  border-color: #b4adff;
+  box-shadow: 0 2px 8px rgba(123, 97, 255, 0.08);
+  transform: translateY(-1px);
 }
 
 /* Focus */
-.filter-select:focus {
-  border-color: #6c63ff;
-  box-shadow: 0 0 0 2px rgba(108, 99, 255, 0.15);
+.filters-container .filter-select:focus {
+  border-color: #7B61FF;
+  box-shadow: 0 0 0 3px rgba(123, 97, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Label highlight on focus within group */
+.filters-right .filter-group:focus-within .filter-label {
+  color: #7B61FF;
 }
 
 /* ───────── ICON SPACING ───────── */
 
-.filter-label i {
+.filters-container .filter-label i {
   font-size: 12px;
   color: #9aa0a6;
+  transition: color 0.2s ease;
+}
+
+.filters-right .filter-group:focus-within .filter-label i {
+  color: #7B61FF;
 }
 
 /* ───────── RESPONSIVE ───────── */
@@ -99,6 +163,7 @@
   .filters-container {
     flex-direction: column;
     align-items: stretch;
+    padding: 12px 14px;
   }
 
   .filters-right {
@@ -106,7 +171,7 @@
     width: 100%;
   }
 
-  .filter-group {
+  .filters-right .filter-group {
     width: 100%;
   }
 }

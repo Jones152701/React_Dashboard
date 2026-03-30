@@ -72,26 +72,37 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
 
     const cards = data.cards;
 
+    const handleCardClick = (key: string, value: any) => {
+      if (onDrillDown) {
+        onDrillDown({
+          type: "bar",
+          key,
+          value,
+          data: cards,
+        });
+      }
+    };
+
     return (
       <div className="row g-3 mb-4">
         <div className="col">
-          <Cards title="Reviews" count={cards.total_reviews_card?.count?.toLocaleString() || "0"} percentage={cards.total_reviews_card?.trend?.value || 0} arrow={getTrendSVG(cards.total_reviews_card?.trend?.value || 0)} loading={loading} />
+          <Cards title="Reviews" count={cards.total_reviews_card?.count?.toLocaleString() || "0"} percentage={cards.total_reviews_card?.trend?.value || 0} arrow={getTrendSVG(cards.total_reviews_card?.trend?.value || 0)} loading={loading} onClick={() => handleCardClick("total_reviews", cards.total_reviews_card?.count)} />
         </div>
 
         <div className="col">
-          <Cards title="Positive" count={cards.positive_card?.count?.toLocaleString() || "0"} percentage={cards.positive_card?.trend?.value || 0} arrow={getTrendSVG(cards.positive_card?.trend?.value || 0)} loading={loading} />
+          <Cards title="Positive" count={cards.positive_card?.count?.toLocaleString() || "0"} percentage={cards.positive_card?.trend?.value || 0} arrow={getTrendSVG(cards.positive_card?.trend?.value || 0)} loading={loading} onClick={() => handleCardClick("sentiment", "positive")} />
         </div>
 
         <div className="col">
-          <Cards title="Neutral" count={cards.neutral_card?.count?.toLocaleString() || "0"} percentage={cards.neutral_card?.trend?.value || 0} arrow={getTrendSVG(cards.neutral_card?.trend?.value || 0)} loading={loading} />
+          <Cards title="Neutral" count={cards.neutral_card?.count?.toLocaleString() || "0"} percentage={cards.neutral_card?.trend?.value || 0} arrow={getTrendSVG(cards.neutral_card?.trend?.value || 0)} loading={loading} onClick={() => handleCardClick("sentiment", "neutral")} />
         </div>
 
         <div className="col">
-          <Cards title="Negative" count={cards.negative_card?.count?.toLocaleString() || "0"} percentage={cards.negative_card?.trend?.value || 0} arrow={getTrendSVG(cards.negative_card?.trend?.value || 0)} loading={loading} />
+          <Cards title="Negative" count={cards.negative_card?.count?.toLocaleString() || "0"} percentage={cards.negative_card?.trend?.value || 0} arrow={getTrendSVG(cards.negative_card?.trend?.value || 0)} loading={loading} onClick={() => handleCardClick("sentiment", "negative")} />
         </div>
 
         <div className="col">
-          <Cards title="Avg Rating" count={`${(cards.avg_rating_card?.value || 0).toFixed(1)} /5`} percentage={cards.avg_rating_card?.trend?.value || 0} arrow={getTrendSVG(cards.avg_rating_card?.trend?.value || 0)} loading={loading} />
+          <Cards title="Avg Rating" count={`${(cards.avg_rating_card?.value || 0).toFixed(1)} /5`} percentage={cards.avg_rating_card?.trend?.value || 0} arrow={getTrendSVG(cards.avg_rating_card?.trend?.value || 0)} loading={loading} onClick={() => handleCardClick("avg_rating", cards.avg_rating_card?.value)} />
         </div>
       </div>
     );

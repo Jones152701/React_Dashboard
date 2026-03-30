@@ -48,7 +48,36 @@ body {
 
   z-index: 1;
 
-  transition: margin-left 0.3s ease;
+  transition: margin-left 0.3s ease,
+              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.4s ease;
+
+  /* Page load fade-in */
+  animation: pageContentFadeIn 0.5s ease both;
+}
+
+@keyframes pageContentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* When drilldown sidebar is open, push content aside */
+.app-layout.sidebar-open .analytics-content {
+  transform: scale(0.97) translateX(-3%);
+  filter: brightness(0.97);
+  border-radius: 16px;
+}
+
+.app-layout.sidebar-open .page-wrap {
+  transition: filter 0.4s ease;
+  filter: blur(1px) brightness(0.98);
+  pointer-events: none;
 }
 
 

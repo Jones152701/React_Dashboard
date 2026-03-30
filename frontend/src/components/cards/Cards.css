@@ -60,3 +60,14 @@
     transform: translateX(100%);
   }
 }
+
+/* Clickable KPI card */
+
+.kpi-card-clickable {
+  transition: all 0.2s ease;
+}
+
+.kpi-card-clickable:hover {
+  box-shadow: 0 6px 20px rgba(35, 34, 39, 0.12) !important;
+}
+

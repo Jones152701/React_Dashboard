@@ -11,8 +11,22 @@
   z-index: 1000;
   margin-left: 60px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  background: #fff; /* prevents transparency overlap */
+  background: #fff;
   transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Entrance animation */
+  animation: headerSlideDown 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes headerSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .sh-page-title {
