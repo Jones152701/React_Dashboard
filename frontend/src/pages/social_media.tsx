@@ -1,5 +1,3 @@
-// social_media.tsx - Updated drilldown handler
-
 import { useState, useEffect } from "react";
 import Navbar from "../components/navbar/navbar";
 import Header from "../components/header/header";
@@ -59,7 +57,7 @@ function SocialMedia() {
     context: null,
   });
 
-  // Single API call for dashboard data (NO page, NO search)
+  // ✅ FIXED: Dashboard API call - NO drillKey logic here
   useEffect(() => {
     if (!filters.fromDate || !filters.toDate) return;
 
@@ -81,6 +79,7 @@ function SocialMedia() {
           params.append("platforms", filters.platforms.join(","));
         }
 
+        // ✅ Dashboard ALWAYS includes sentiment filter
         if (filters.sentiments && !filters.sentiments.includes("all")) {
           params.append("sentiments", filters.sentiments.join(","));
         }
@@ -148,11 +147,15 @@ function SocialMedia() {
         params.append("platforms", filters.platforms.join(","));
       }
 
-      if (filters.sentiments && !filters.sentiments.includes("all")) {
+      // ✅ FIXED: DO NOT send sentiment filter if drilling on sentiment
+      // This prevents double-filtering when drilling down on sentiment segments
+      if (
+        filters.sentiments && 
+        !filters.sentiments.includes("all") &&
+        drillKey !== "sentiment"
+      ) {
         params.append("sentiments", filters.sentiments.join(","));
       }
-
-     
 
       const url = `http://localhost:8000/social_media/?${params.toString()}`;
       console.log("Drilldown API:", url);

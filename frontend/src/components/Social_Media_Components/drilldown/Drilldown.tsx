@@ -15,8 +15,14 @@ interface DrilldownProps {
   onClose: () => void;
 }
 
-const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
+type WordCloudConfig = {
+  minFontSize?: number;
+  maxFontSize?: number;
+  padding?: number;
+  colors?: string[]; // ✅ NEW: Dynamic colors from backend
+};
 
+const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
   /* ── Delayed unmount for exit animation ── */
   const [visible, setVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -45,14 +51,14 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
 
   if (!visible) return null;
 
+  /* ================= HELPER FUNCTIONS ================= */
+
   const convertWordCloud = (obj: Record<string, number>) => {
     return Object.entries(obj || {}).map(([text, value]) => ({
       text,
       value,
     }));
   };
-
-  /* ================= HELPERS ================= */
 
   const renderStars = (rating?: number) => {
     if (!rating) return null;
@@ -75,18 +81,77 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
     });
 
   const contextLabel = drill.context
-    ? `${String(drill.context.key).replace(/_/g, " ")} → ${String(drill.context.value)}`
+    ? `${String(drill.context.key).replace(/_/g, " ")} → ${String(
+        drill.context.value
+      )}`
     : "";
+
+  /* ================= WORD CLOUD HANDLERS ================= */
+
+  const isWordCloudObject = (
+    wc: any
+  ): wc is { data: Record<string, number>; config?: WordCloudConfig } => {
+    return (
+      wc &&
+      typeof wc === "object" &&
+      !Array.isArray(wc) &&
+      "data" in wc &&
+      typeof wc.data === "object"
+    );
+  };
+
+  const getWordCloudData = () => {
+    const wc = drill.data?.wordcloud;
+
+    if (!wc) return [];
+
+    // ✅ NEW FORMAT: { data, config }
+    if (isWordCloudObject(wc)) {
+      return convertWordCloud(wc.data);
+    }
+
+    // ✅ OLD FORMAT: Record<string, number>
+    if (typeof wc === "object" && wc !== null) {
+      return convertWordCloud(wc as Record<string, number>);
+    }
+
+    // ❌ fallback safety
+    return [];
+  };
+
+  const getWordCloudConfig = (): Required<WordCloudConfig> => {
+    const defaults = {
+      minFontSize: 10,
+      maxFontSize: 30,
+      padding: 0.5,
+      colors: ["#6366F1", "#8B5CF6", "#3B82F6", "#0EA5E9", "#14B8A6"],
+    };
+
+    const wc = drill.data?.wordcloud;
+
+    if (isWordCloudObject(wc)) {
+      return { ...defaults, ...(wc.config || {}) };
+    }
+
+    return defaults;
+  };
+
+  const wordCloudData = getWordCloudData();
+  const wordCloudConfig = getWordCloudConfig();
 
   /* ================= RENDER ================= */
 
   return (
     <div
-      className={`drilldown-overlay ${isClosing ? "drilldown-overlay--closing" : ""}`}
+      className={`drilldown-overlay ${
+        isClosing ? "drilldown-overlay--closing" : ""
+      }`}
       onClick={handleClose}
     >
       <div
-        className={`drilldown-sidebar ${isClosing ? "drilldown-sidebar--closing" : ""}`}
+        className={`drilldown-sidebar ${
+          isClosing ? "drilldown-sidebar--closing" : ""
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ================= HEADER ================= */}
@@ -112,7 +177,6 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
 
         {/* ================= CONTENT ================= */}
         <div className="drilldown-content">
-
           {/* ================= LOADING ================= */}
           {drill.loading && (
             <div className="drilldown-loading">
@@ -185,25 +249,28 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
               ))}
 
               {/* ================= WORD CLOUD ================= */}
-              {drill.data.wordcloud &&
-                Object.keys(drill.data.wordcloud).length > 0 && (
-                  <div className="drilldown-chart drill-section">
-                    <h4 className="drilldown-chart-title">
-                      <i className="bi bi-cloud drilldown-chart-icon"></i>
-                      Key Topics
-                    </h4>
+              {wordCloudData.length > 0 && (
+                <div className="drilldown-chart drill-section">
+                  <h4 className="drilldown-chart-title">
+                    <i className="bi bi-cloud drilldown-chart-icon"></i>
+                    Key Topics
+                  </h4>
 
-                    <div className="p-3">
-                      <WordCloudVisx
-                        data={convertWordCloud(drill.data.wordcloud)}
-                        maxWords={50}
-                        onDrillDown={(event) => {
-                          console.log("Word drill:", event);
-                        }}
-                      />
-                    </div>
+                  <div className="p-3">
+                    <WordCloudVisx
+                      data={wordCloudData}
+                      onDrillDown={(event) => {
+                        console.log("Word drill:", event);
+                      }}
+                      minFontSize={wordCloudConfig.minFontSize}
+                      maxFontSize={wordCloudConfig.maxFontSize}
+                      padding={wordCloudConfig.padding}
+                      colors={wordCloudConfig.colors} // ✅ NEW: Pass colors from config
+                      selectedValue={drill.context?.value} // ✅ Pass selected value for highlighting
+                    />
                   </div>
-                )}
+                </div>
+              )}
 
               {/* ================= REVIEWS ================= */}
               {drill.data.reviews?.length > 0 && (

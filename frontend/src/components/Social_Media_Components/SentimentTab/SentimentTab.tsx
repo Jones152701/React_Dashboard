@@ -15,6 +15,13 @@ interface Props {
   onDrillDown?: (event: DrillEvent) => void; // ✅ ADD THIS
 }
 
+
+type HashtagConfig = {
+  title?: string;
+  icon?: string;
+  tooltip?: string;
+};
+
 /* ---------------- TREND SVG ---------------- */
 
 const getTrendSVG = (value: number) => {
@@ -24,20 +31,20 @@ const getTrendSVG = (value: number) => {
   const color = isPositive
     ? "#198754"
     : isNegative
-    ? "#dc3545"
-    : "gray";
+      ? "#dc3545"
+      : "gray";
 
   const points = isPositive
     ? "1,20 10,10 18,15 39,2"
     : isNegative
-    ? "1,4 10,14 18,9 39,22"
-    : "1,12 39,12";
+      ? "1,4 10,14 18,9 39,22"
+      : "1,12 39,12";
 
   const arrow = isPositive
     ? "30,2 39,2 39,10"
     : isNegative
-    ? "30,22 39,22 39,14"
-    : "33,7 39,12 33,17";
+      ? "30,22 39,22 39,14"
+      : "33,7 39,12 33,17";
 
   return (
     <svg width="56" height="40" viewBox="0 0 40 24">
@@ -46,6 +53,8 @@ const getTrendSVG = (value: number) => {
     </svg>
   );
 };
+
+
 
 /* ---------------- COMPONENT ---------------- */
 
@@ -113,18 +122,71 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
   const ratingDistributionChart = charts.find((c: any) => c.id === "rating_distribution");
   const sentimentScoreTrendChart = charts.find((c: any) => c.id === "sentiment_score_trend");
 
-  /* ---------------- WORD CLOUD ---------------- */
-  const wordCloudData = Object.entries(data?.wordcloud || {}).map(
-    ([text, value]) => ({ text, value: value as number })
-  );
+  /* ---------------- WORD CLOUD (SAFE HANDLING) ---------------- */
+
+  const isWordCloudObject = (
+    wc: any
+  ): wc is { data: Record<string, number>; config?: any } => {
+    return (
+      wc &&
+      typeof wc === "object" &&
+      !Array.isArray(wc) &&
+      "data" in wc &&
+      typeof wc.data === "object"
+    );
+  };
+
+  const getWordCloudData = () => {
+    const wc = data?.wordcloud;
+
+    if (!wc) return [];
+
+    // ✅ NEW FORMAT: { data, config }
+    if (isWordCloudObject(wc)) {
+      return Object.entries(wc.data).map(([text, value]) => ({
+        text,
+        value,
+      }));
+    }
+
+    // ✅ OLD FORMAT: Record<string, number>
+    if (typeof wc === "object") {
+      return Object.entries(wc as Record<string, number>).map(
+        ([text, value]) => ({
+          text,
+          value,
+        })
+      );
+    }
+
+    return [];
+  };
+
+  const getWordCloudConfig = () => {
+    const wc = data?.wordcloud;
+
+    if (isWordCloudObject(wc)) {
+      return wc.config || {};
+    }
+
+    return {};
+  };
+
+  const wordCloudData = getWordCloudData();
+  const wordCloudConfig = getWordCloudConfig();
 
   /* ---------------- HASHTAGS TRANSFORM ---------------- */
-  const hashtags = Object.entries(data?.top_hashtags || {}).map(
-    ([text, value]) => ({
-      text: text.replace("#", ""), // remove #
-      value: value as number,
-    })
-  );
+
+  const hashtagsObj = data?.top_hashtags?.data || {};
+  const hashtagsConfig: HashtagConfig =
+    (data?.top_hashtags?.config as HashtagConfig) || {};
+
+
+  const hashtags = Object.entries(hashtagsObj).map(([text, value]) => ({
+    text: text.replace("#", ""),
+    value: value as number,
+  }));
+
 
   const handleHashtagClick = (tag: string) => {
     if (onDrillDown) {
@@ -132,7 +194,7 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
         type: "word",
         key: "text",
         value: tag,
-        data:data,
+        data: data,
       });
     }
   };
@@ -149,7 +211,7 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
         {dailySentimentChart && (
           <div className="col-12">
             <ChartCard {...dailySentimentChart} loading={loading}>
-              <ChartRenderer 
+              <ChartRenderer
                 chart={dailySentimentChart}
                 onDrillDown={onDrillDown} // ✅ FIX
               />
@@ -161,7 +223,7 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
         <div className="col-12 col-lg-6">
           {ratingDistributionChart && (
             <ChartCard {...ratingDistributionChart} loading={loading}>
-              <ChartRenderer 
+              <ChartRenderer
                 chart={ratingDistributionChart}
                 onDrillDown={onDrillDown} // ✅ FIX
               />
@@ -173,7 +235,7 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
         <div className="col-12 col-lg-6">
           {sentimentScoreTrendChart && (
             <ChartCard {...sentimentScoreTrendChart} loading={loading}>
-              <ChartRenderer 
+              <ChartRenderer
                 chart={sentimentScoreTrendChart}
                 onDrillDown={onDrillDown} // ✅ FIX
               />
@@ -183,12 +245,21 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
 
         {/* ✅ WORD CLOUD */}
         <div className="col-12 col-lg-6">
-          <ChartCard title="Word Cloud" icon="bi bi-cloud" loading={loading}>
+          <ChartCard
+            title={wordCloudConfig.title || "Word Cloud"}
+            icon={wordCloudConfig.icon || "bi bi-cloud"}
+            tooltip={wordCloudConfig.tooltip || "Key topics"}
+            loading={loading}
+          >
             <div style={{ height: 320 }}>
               {wordCloudData.length > 0 ? (
-                <WordCloudVisx 
+                <WordCloudVisx
                   data={wordCloudData}
-                  onDrillDown={onDrillDown} // ✅ FIX
+                  onDrillDown={onDrillDown}
+                  minFontSize={wordCloudConfig?.minFontSize}
+                  maxFontSize={wordCloudConfig?.maxFontSize}
+                  padding={wordCloudConfig?.padding}
+                  colors={wordCloudConfig.colors}
                 />
               ) : (
                 <div className="text-center py-4 text-muted">
@@ -201,20 +272,27 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
 
         {/* ✅ HASHTAGS */}
         <div className="col-12 col-lg-6">
-          <ChartCard title="Top Hashtags" icon="bi bi-hash" loading={loading}>
+          <ChartCard
+            title={hashtagsConfig?.title || "Top Hashtags"}
+            icon={hashtagsConfig?.icon || "bi bi-hash"}
+            tooltip={hashtagsConfig?.tooltip}
+            loading={loading}
+          >
             {hashtags.length > 0 ? (
               <div className="hashtags-grid">
                 {hashtags.map((tag, i) => (
-                  <div 
-                    key={i} 
+                  <div
+                    key={i}
                     className="hashtag-card"
                     onClick={() => handleHashtagClick(tag.text)}
-                    style={{ cursor: onDrillDown ? 'pointer' : 'default' }}
+                    style={{ cursor: onDrillDown ? "pointer" : "default" }}
+                    title={hashtagsConfig?.tooltip || "Hashtag"}
                   >
                     <div className="hashtag-left">
                       <span className="hash-symbol">#</span>
                       <span className="hashtag-text">{tag.text}</span>
                     </div>
+
                     <div className="hashtag-count">
                       {tag.value}
                     </div>

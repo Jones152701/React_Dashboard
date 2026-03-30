@@ -1,3 +1,5 @@
+/* ================= CHART ================= */
+
 export interface ChartConfig {
   xKey: string;
   yLabel?: string;
@@ -9,23 +11,74 @@ export interface ChartConfig {
 export interface ChartResponse {
   id: string;
   title: string;
-  type: "bar" | "pie" | "area"; // add "treemap" if needed
+  type: "bar" | "pie" | "area";
   tooltip?: string;
   icon?: string;
   data: any[];
   config: ChartConfig;
 }
 
+/* ================= WORD CLOUD ================= */
+
+export interface WordCloudConfig {
+  minFontSize?: number;
+  maxFontSize?: number;
+  padding?: number;
+  colors?: string[];
+
+  title?: string;
+  tooltip?: string;
+  icon?: string;
+}
+
+export interface WordCloudSection {
+  data: Record<string, number>;
+  config?: WordCloudConfig;
+}
+
+/* ================= HASHTAGS ================= */
+
+export interface HashtagConfig {
+  title?: string;
+  tooltip?: string;
+  icon?: string;
+}
+
+export interface HashtagSection {
+  data: Record<string, number>;
+  config?: HashtagConfig;
+}
+
+/* ================= USERS (ADVOCATES / DETRACTORS) ================= */
+
+export interface UserData {
+  username: string;
+  mentions: number;
+}
+
+export interface UserConfig {
+  title?: string;
+  tooltip?: string;
+  icon?: string;
+}
+
+export interface UserSection {
+  data: UserData[];
+  config?: UserConfig;
+}
+
+/* ================= MAIN RESPONSE ================= */
+
 export interface SocialMediaResponse {
   cards: any;
 
-  // ✅ ADD THIS
   charts: ChartResponse[];
 
-  // existing fields
-  wordcloud: Record<string, number>;
-  top_hashtags: Record<string, number>;
+  // ✅ UPDATED (new structure)
+  wordcloud: WordCloudSection;
+  top_hashtags: HashtagSection;
 
-  top_advocates?: any[];
-  top_detractors?: any[];
+  // ✅ NEW (fixed)
+  top_advocates?: UserSection;
+  top_detractors?: UserSection;
 }

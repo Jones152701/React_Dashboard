@@ -262,15 +262,16 @@ const StackedBarChart: React.FC<Props> = ({
       segmentKey,
       xValue: entry[xKey],
       xKey,
+      finalDrillKey,
       entryData: entry
     });
 
     onDrillDown({
       type: "bar",
-      key: "segment",
+      key: finalDrillKey,
       value: segmentKey,
       data: {
-        [xKey]: entry[xKey],   // ✅ Dynamic key (e.g., "stage", "date", "category")
+        [xKey]: entry[xKey],
         segment: segmentKey,
         ...entry,
       },
@@ -288,8 +289,8 @@ const StackedBarChart: React.FC<Props> = ({
 
     onDrillDown({
       type: "bar",
-      key: xKey,               // ✅ Dynamic key (e.g., "stage", "date", etc.)
-      value: entry[xKey],      // The x-axis value
+      key: xKey,
+      value: entry[xKey],
       data: entry,
     });
   };

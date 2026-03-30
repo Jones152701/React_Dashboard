@@ -6,6 +6,7 @@ import re
 from collections import Counter
 from datetime import datetime, timedelta
 from .chart_builder import build_chart
+from .word_cloud import  generate_wordcloud
 
 
 
@@ -607,7 +608,7 @@ class SocialMediaDailyView(APIView):
                         "rating": ("user_rating", "number"),
                         "user_rating": ("user_rating", "number"),
                         "advocate": ("username", "string"),
-                        "detractor": ("username", "string"),
+                "detractor": ("username", "string"),
                     }
                     
                     # Make a copy of the base filters
@@ -837,11 +838,7 @@ class SocialMediaDailyView(APIView):
                     print(f"🎯 Sentiment distribution rows: {len(sentiment_distribution)}")
                     
                     # =============== WORD CLOUD ===============
-                    # (Keep existing word cloud logic)
-                    stopwords = set([
-                        # ... existing stopwords ...
-                    ])
-                    
+
                     word_counter = Counter()
                     
                     text_query = f"""
@@ -853,27 +850,9 @@ class SocialMediaDailyView(APIView):
                     cursor.execute(text_query, drill_params)
                     messages = [row[0] for row in cursor.fetchall() if row[0] and isinstance(row[0], str)]
                     
-                    for msg in messages:
-                        if not msg.strip():
-                            continue
-                        words = re.findall(r'\b\w+\b', msg.lower())
-                        word_counter.update(words)
                     
-                    wordcloud = {}
-                    if word_counter:
-                        filtered_words = {
-                            word: count
-                            for word, count in word_counter.items()
-                            if word not in stopwords and len(word) > 3 and not word.isdigit()
-                        }
-                        
-                        if filtered_words:
-                            max_val = max(filtered_words.values())
-                            wordcloud = {
-                                word: int((count / max_val) * 100)
-                                for word, count in sorted(filtered_words.items(), key=lambda x: x[1], reverse=True)[:100]
-                            }
-                    
+                    wordcloud = generate_wordcloud(messages, max_words=100)
+
                     print(f"📝 Word cloud words: {len(wordcloud)}")
                     
                     # =============== REVIEWS LIST ===============
@@ -917,74 +896,63 @@ class SocialMediaDailyView(APIView):
                     
                     # Daily Trend Chart (only for non-text, non-hour, non-weekday drills)
                     if daily_trend and drill_key not in ["text", "hour", "day"]:
-                        charts.append({
-                            "id": "daily_trend",
-                            "type": "area",
-                            "data": daily_trend,
-                            "config": {
-                                "xKey": "day",
-                                "drillKey": "created_date",
-                                "areas": [{"key": "count", "color": "#3B82F6"}],
-                                "xLabel": "Date",
-                                "yLabel": "Reviews",
-                                "isDate": True,
-                                "height": 320,
-                                "margin": {"top": 20, "right": 10, "left": 20, "bottom": 30}
-                            },
-                            "title": "Daily Trend",
-                            "tooltip": "Reviews over time",
-                            "icon": "bi-graph-up"
-                        })
+                        charts.append(build_chart(
+                            chart_id="daily_trend",
+                            chart_type="area",
+                            data=daily_trend,
+                            x_key="day",
+                            y_key="count",
+                            drill_key="created_date",
+                            title="Daily Trend",
+                            icon="bi-graph-up",
+                            color="#3B82F6",         
+                            is_date=True,            
+                            height=320,
+                            x_label="Date",
+                            y_label="Reviews",
+                            margin={"top": 20, "right": 10, "left": 20, "bottom": 30}
+                        ))
                     
                     # Platform Distribution Chart
                     if platform_distribution:
-                        charts.append({
-                            "id": "platform_distribution",
-                            "type": "bar",
-                            "data": platform_distribution,
-                            "config": {
-                                "xKey": "platform",
-                                "yKey": "count",
-                                "drillKey": "platform",
-                                "layout": "vertical",
-                                "color": "#3B82F6",
-                                "xLabel": "Count",
-                                "yLabel": "Platform",
-                                "height": 320,
-                                "margin": {"top": 20, "right": 10, "left": 20, "bottom": 30}
-                            },
-                            "title": "Platform Distribution",
-                            "tooltip": "Reviews by platform",
-                            "icon": "bi-phone"
-                        })
+                       charts.append(build_chart(
+                            chart_id="platform_distribution",
+                            chart_type="bar",
+                            data=platform_distribution,
+                            x_key="platform",
+                            y_key="count",
+                            drill_key="platform",
+                            title="Platform Distribution",
+                            tooltip="Reviews by platform",
+                            icon="bi-phone",
+                            layout="vertical",
+                            color="#3B82F6",
+                            height=320,
+                            x_label="Count",
+                            y_label="Platform",
+                            margin={"top": 20, "right": 10, "left": 20, "bottom": 30}
+                        ))
                     
                     # Sentiment Distribution Chart
                     if sentiment_distribution:
-                        sentiment_colors = {
-                            "positive": "#10b95d",
-                            "neutral": "#767676",
-                            "negative": "#f65656"
-                        }
                         
-                        charts.append({
-                            "id": "sentiment_distribution",
-                            "type": "pie",
-                            "data": sentiment_distribution,
-                            "config": {
-                                "xKey": "name",
-                                "yKey": "value",
-                                "drillKey": "sentiment",
-                                "height": 280,
-                                "color": sentiment_colors,
-                                "showLegend": True,
-                                "showLabels": True,
-                                "innerRadius": 0,
-                                "outerRadius": 100
+                        charts.append(build_chart(
+                            chart_id="sentiment_distribution",
+                            chart_type="pie",
+                            data=sentiment_distribution,
+                            x_key="name",
+                            y_key="value",
+                            drill_key="sentiment",
+                            title="Sentiment Distribution",
+                            tooltip="Sentiment split of filtered reviews",
+                            icon="bi-pie-chart",
+                            color={
+                                "positive": "#10b95d",
+                                "neutral": "#767676",
+                                "negative": "#f65656"
                             },
-                            "title": "Sentiment Distribution",
-                            "tooltip": "Sentiment split of filtered reviews",
-                            "icon": "bi-pie-chart"
-                        })
+                            height=280
+                        ))
                     
                     print(f"\n===== DRILLDOWN RESPONSE =====")
                     print(f"Drill Key: {drill_key}, Drill Value: {drill_value}")
@@ -1003,14 +971,32 @@ class SocialMediaDailyView(APIView):
                     return Response({
                         "cards": cards,
                         "charts": charts,
-                        "wordcloud": wordcloud,
+
+                        "wordcloud": {
+                            "data": wordcloud,
+                            "config": {
+                                "minFontSize": 12,
+                                "maxFontSize": 40,
+                                "padding": 0.3,  # ✅ FIXED comma
+
+                                "colors": [
+                                    "#6366F1",
+                                    "#8B5CF6",
+                                    "#3B82F6",
+                                    "#0EA5E9",
+                                    "#14B8A6"
+                                ]
+                            }
+                        },
+
                         "reviews": reviews,
+
                         "context": {
                             "key": drill_key,
                             "value": drill_value,
                             "type": "drilldown"
-        }
-    })
+                        }
+                    })
                 # =============== FOR REVIEW REQUESTS - ONLY RETURN REVIEWS ===============
                 elif is_review_request:
                     
@@ -1287,9 +1273,8 @@ class SocialMediaDailyView(APIView):
                         for row in score_rows
                     ]
 
-                    # ---------------- Word Cloud & Hashtags ----------------
-                    top_words = 200
-                    word_counter = Counter()
+                   # ---------------- Word Cloud & Hashtags ----------------
+                  
                     hashtag_counter = Counter()
 
                     try:
@@ -1303,95 +1288,26 @@ class SocialMediaDailyView(APIView):
                         text_params.extend([current_from_str, current_to_str])
                         
                         cursor.execute(all_text_query, text_params)
-                        # Filter out None/Null messages
+
+                        # Clean messages
                         messages = [row[0] for row in cursor.fetchall() if row[0] and isinstance(row[0], str)]
 
+                        # -------- HASHTAGS --------
+                        
                         for msg in messages:
-                            # Ensure message is string
-                            if not isinstance(msg, str):
-                                continue
-
-                            # Handle empty messages
-                            if not msg.strip():
-                                continue
-
-                            # Extract words and hashtags
-                            words = re.findall(r'\b\w+\b', msg.lower())
                             hashtags = re.findall(r'#\w+', msg.lower())
-
-                            word_counter.update(words)
                             hashtag_counter.update(hashtags)
+
+                        # -------- WORD CLOUD (REFACTORED) --------
+                        top_words = generate_wordcloud(messages, max_words=200)
 
                     except Exception as e:
                         print(f"WordCloud processing error: {str(e)}")
-                        # Continue with empty counters rather than failing
-
-                    # Stopwords set (same as drilldown)
-                    stopwords = set([
-                        'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've", 
-                        "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 
-                        'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself', 'they', 'them', 
-                        'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', "that'll", 
-                        'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 
-                        'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the', 'and', 'but', 'if', 'or', 
-                        'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 
-                        'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 
-                        'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 
-                        'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 
-                        'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 
-                        'too', 'very', 's', 't', 'can', 'will', 'just', 'don', "don't", 'should', "should've", 
-                        'now', 'aren', "aren't", 'couldn', "couldn't", 'didn', "didn't", 'doesn', "doesn't", 
-                        'hadn', "hadn't", 'hasn', "hasn't", 'haven', "haven't", 'isn', "isn't", 'ma', 'mightn', 
-                        "mightn't", 'mustn', "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn', "shouldn't", 
-                        'wasn', "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't", 'really', 'very', 
-                        'quite', 'too', 'much', 'many', 'also', 'even', 'still', 'just', 'already', 'yet', 'however', 
-                        'therefore', 'thus', 'hence', 'consequently', 'meanwhile', 'nevertheless', 'nonetheless', 
-                        'otherwise', 'instead', 'furthermore', 'moreover', 'additionally', 'besides', 'indeed', 
-                        'actually', 'basically', 'essentially', 'literally', 'seriously', 'honestly', 'personally', 
-                        'generally', 'usually', 'normally', 'typically', 'often', 'sometimes', 'rarely', 'never', 
-                        'always', 'forever', 'constantly', 'continuously', 'this', 'that', 'these', 'those', 'any', 
-                        'some', 'every', 'each', 'all', 'both', 'either', 'neither', 'another', 'such', 'what', 
-                        'which', 'whose', 'a', 'an', 'the', 'and', 'but', 'or', 'if', 'because', 'as', 'until', 
-                        'while', 'of', 'at', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 
-                        'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 
-                        'off', 'over', 'under', 'again', 'further', 'then', 'once', 'have', 'has', 'had', 'do', 'does', 
-                        'did', 'say', 'says', 'said', 'go', 'goes', 'went', 'get', 'gets', 'got', 'make', 'makes', 
-                        'made', 'know', 'knows', 'knew', 'think', 'thinks', 'thought', 'take', 'takes', 'took', 'see', 
-                        'sees', 'saw', 'come', 'comes', 'came', 'want', 'wants', 'wanted', 'look', 'looks', 'looked', 
-                        'use', 'uses', 'used', 'find', 'finds', 'found', 'give', 'gives', 'gave', 'tell', 'tells', 
-                        'told', 'work', 'works', 'worked', 'called', 'got', 'get', 'one', 'back', 'go', 'went', 'see', 
-                        'know', 'tell', 'come', 'time', 'day', 'week', 'month', 'year', 'people', 'thing', 'way', 
-                        'said', 'say', 'also', 'well', 'even', 'new', 'first', 'last', 'good', 'bad', 'great', 'really', 
-                        'please', 'help', 'need', 'want', 'thank', 'thanks',
-                        # Additional foreign/common words
-                        'est', 'que', 'pour', 'les', 'des', 'une', 'dans', 'par', 'sur', 'avec',
-                        'tout', 'plus', 'bien', 'tres', 'fait', 'faire', 'etre', 'avoir', 'cest',
-                        'ca', 'cela', 'cette', 'comme', 'chez', 'aussi', 'donc', 'enfin', 'voila',
-                        'alors', 'toujours', 'jamais', 'pendant', 'depuis', 'entre', 'sans', 'sous'
-                    ])
-
-                    # Filter words
-                    if word_counter:
-                        filtered_words = {
-                            word: count
-                            for word, count in word_counter.items()
-                            if word not in stopwords and len(word) > 3 and not word.isdigit()
-                        }
-                        
-                        # Normalize values
-                        if filtered_words:
-                            max_val = max(filtered_words.values())
-                            if max_val > 0:
-                                top_words = {
-                                    word: int((count / max_val) * 100)
-                                    for word, count in sorted(filtered_words.items(), key=lambda x: x[1], reverse=True)[:200]
-                                }
-                            else:
-                                top_words = {}
-                        else:
-                            top_words = {}
-                    else:
                         top_words = {}
+                        hashtag_counter = Counter()
+
+                    # Top hashtags
+                    top_hashtags = dict(hashtag_counter.most_common(10)) if hashtag_counter else {}
 
                     # Top 10 hashtags
                     if hashtag_counter:
@@ -1952,13 +1868,58 @@ class SocialMediaDailyView(APIView):
                     print(f"Hashtags: {len(top_hashtags)}")
                     print("==============================\n")
 
+   
+
                     return Response({
                         "cards": cards,
                         "charts": charts,
-                        "wordcloud": top_words,
-                        "top_hashtags": top_hashtags,
-                        "top_advocates": top_advocates_data,
-                        "top_detractors": top_detractors_data,
+
+                        "wordcloud": {
+                            "data": top_words,
+                            "config": {
+                                "minFontSize": 10,
+                                "maxFontSize": 25,
+                                "padding": 0.5,
+                                "title": "Word Cloud",
+                                "tooltip": "Most frequent words in reviews",
+                                "icon":"bi bi-cloud-fill",
+
+                                # ✅ NEW: color palette
+                                "colors": [
+                                    "#6366F1",
+                                    "#8B5CF6",
+                                    "#3B82F6",
+                                    "#0EA5E9",
+                                    "#14B8A6"
+                                ]
+                            }
+                        },
+
+                        "top_hashtags": {
+                            "data": top_hashtags,
+                            "config":{
+                                 "title": "Top Hashtags",
+                                 "tooltip": "Most used hastags in reviews",
+                                 "icon":"bi bi-hash",
+                            }
+                        },
+                        "top_advocates": {
+                            "data": top_advocates_data,
+                            "config":{
+                                "title": "Top Advocates",
+                                 "tooltip": "Users with most positive mentions",
+                                 "icon":"bi bi-megaphone-fill text-success",
+                            }
+                        },
+                        "top_detractors": {
+                            "data":top_detractors_data,
+                            "config":{
+                                "title": "Top Detractors",
+                                 "tooltip": "Users with most negative mentions",
+                                 "icon":"bi bi-chat-left-dots-fill text-danger",
+                            }
+                        },
+                    
                     })
 
         except Exception as e:

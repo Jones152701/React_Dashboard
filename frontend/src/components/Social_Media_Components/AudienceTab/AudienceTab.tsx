@@ -1,7 +1,7 @@
 import React from "react";
 import ChartCard from "../ChartCard/ChartCard";
-import ChartRenderer from "../../ChartRender"; 
-import type { DrillEvent } from "../../ChartRender"; // ✅ IMPORT TYPE
+import ChartRenderer from "../../ChartRender";
+import type { DrillEvent } from "../../ChartRender";
 import type { SocialMediaResponse } from "../../../types/socialMedia";
 import "./audienceTab.css";
 
@@ -10,13 +10,19 @@ import "./audienceTab.css";
 interface Props {
   data: SocialMediaResponse | null;
   loading: boolean;
-  onDrillDown?: (event: DrillEvent) => void; // ✅ ADD THIS
+  onDrillDown?: (event: DrillEvent) => void;
 }
 
 interface UserData {
   username: string;
   mentions: number;
 }
+
+type UserConfig = {
+  title?: string;
+  tooltip?: string;
+  icon?: string;
+};
 
 /* ---------------- COMPONENT ---------------- */
 
@@ -31,8 +37,29 @@ const AudienceTab: React.FC<Props> = ({ data, loading, onDrillDown }) => {
   const activityHourChart = getChart("activity_by_hour");
   const activityDayChart = getChart("activity_by_day");
 
-  const advocates = data?.top_advocates || [];
-  const detractors = data?.top_detractors || [];
+  /* ---------------- DATA + CONFIG (SAFE DEFAULTS) ---------------- */
+
+  const advocatesData: UserData[] = data?.top_advocates?.data ?? [];
+  const advocatesConfig: Required<UserConfig> = {
+    title: data?.top_advocates?.config?.title || "Top Advocates",
+    tooltip:
+      data?.top_advocates?.config?.tooltip ||
+      "Users with most positive mentions",
+    icon:
+      data?.top_advocates?.config?.icon ||
+      "bi bi-megaphone-fill text-success",
+  };
+
+  const detractorsData: UserData[] = data?.top_detractors?.data ?? [];
+  const detractorsConfig: Required<UserConfig> = {
+    title: data?.top_detractors?.config?.title || "Top Detractors",
+    tooltip:
+      data?.top_detractors?.config?.tooltip ||
+      "Users with most negative mentions",
+    icon:
+      data?.top_detractors?.config?.icon ||
+      "bi bi-chat-left-dots-fill text-danger",
+  };
 
   /* ---------------- TABLE (CLICKABLE ROWS) ---------------- */
 
@@ -54,7 +81,9 @@ const AudienceTab: React.FC<Props> = ({ data, loading, onDrillDown }) => {
           return (
             <div
               key={i}
-              className={`audience-row d-flex align-items-center ${onDrillDown ? "audience-row--clickable" : ""}`}
+              className={`audience-row d-flex align-items-center ${
+                onDrillDown ? "audience-row--clickable" : ""
+              }`}
               onClick={() => {
                 if (onDrillDown) {
                   onDrillDown({
@@ -95,7 +124,7 @@ const AudienceTab: React.FC<Props> = ({ data, loading, onDrillDown }) => {
     return (
       <ChartRenderer
         chart={chart}
-        onDrillDown={onDrillDown} // ✅ CRITICAL FIX
+        onDrillDown={onDrillDown}
       />
     );
   };
@@ -133,24 +162,24 @@ const AudienceTab: React.FC<Props> = ({ data, loading, onDrillDown }) => {
         {/* ADVOCATES */}
         <div className="col-12 col-lg-6">
           <ChartCard
-            title="Top Advocates"
-            tooltip="Users with most positive mentions"
-            icon="bi bi-megaphone-fill text-success"
+            title={advocatesConfig.title}
+            tooltip={advocatesConfig.tooltip}
+            icon={advocatesConfig.icon}
             loading={loading}
           >
-            {renderUserTable(advocates, "advocate")}
+            {renderUserTable(advocatesData, "advocate")}
           </ChartCard>
         </div>
 
         {/* DETRACTORS */}
         <div className="col-12 col-lg-6">
           <ChartCard
-            title="Top Detractors"
-            tooltip="Users with most negative mentions"
-            icon="bi bi-chat-left-dots-fill text-danger"
+            title={detractorsConfig.title}
+            tooltip={detractorsConfig.tooltip}
+            icon={detractorsConfig.icon}
             loading={loading}
           >
-            {renderUserTable(detractors, "detractor")}
+            {renderUserTable(detractorsData, "detractor")}
           </ChartCard>
         </div>
 
