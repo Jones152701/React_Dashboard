@@ -118,6 +118,25 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
     ([text, value]) => ({ text, value: value as number })
   );
 
+  /* ---------------- HASHTAGS TRANSFORM ---------------- */
+  const hashtags = Object.entries(data?.top_hashtags || {}).map(
+    ([text, value]) => ({
+      text: text.replace("#", ""), // remove #
+      value: value as number,
+    })
+  );
+
+  const handleHashtagClick = (tag: string) => {
+    if (onDrillDown) {
+      onDrillDown({
+        type: "word",
+        key: "text",
+        value: tag,
+        data:data,
+      });
+    }
+  };
+
   /* ---------------- RENDER ---------------- */
   return (
     <div className="container-fluid">
@@ -177,6 +196,36 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
                 </div>
               )}
             </div>
+          </ChartCard>
+        </div>
+
+        {/* ✅ HASHTAGS */}
+        <div className="col-12 col-lg-6">
+          <ChartCard title="Top Hashtags" icon="bi bi-hash" loading={loading}>
+            {hashtags.length > 0 ? (
+              <div className="hashtags-grid">
+                {hashtags.map((tag, i) => (
+                  <div 
+                    key={i} 
+                    className="hashtag-card"
+                    onClick={() => handleHashtagClick(tag.text)}
+                    style={{ cursor: onDrillDown ? 'pointer' : 'default' }}
+                  >
+                    <div className="hashtag-left">
+                      <span className="hash-symbol">#</span>
+                      <span className="hashtag-text">{tag.text}</span>
+                    </div>
+                    <div className="hashtag-count">
+                      {tag.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-muted">
+                No hashtags found
+              </div>
+            )}
           </ChartCard>
         </div>
 

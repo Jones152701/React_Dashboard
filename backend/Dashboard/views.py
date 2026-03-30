@@ -486,28 +486,7 @@ class SocialMediaDailyView(APIView):
                 filter_params.extend(sentiment_list)
 
         # Add drilldown filter if this is a drilldown request
-        if is_drilldown_request and drill_key and drill_value:
-            # Map drill keys to database columns
-            drill_column_map = {
-                "platform": "platform",
-                "country": "country", 
-                "sentiment": "sentiment",
-                "segment": "sentiment",  
-                "text": "message",       
-                "primary_mention": "primary_mention",
-                "issue_type": "issue_type",
-                "journey_stage": "journey_stage",
-                "churn_risk": "churn_risk",
-                "resolution_status": "resolution_status",
-                "value_for_money": "value_for_money",
-                "gender": "gender",
-                "language": "language"
-            }
-            
-            if drill_key in drill_column_map:
-                column = drill_column_map[drill_key]
-                filters.append(f"LOWER({column}) = %s")
-                filter_params.append(drill_value.lower())
+
 
         # Safe search with parameterization (only for review and drilldown requests)
         if search and (is_review_request or is_drilldown_request):
@@ -627,6 +606,8 @@ class SocialMediaDailyView(APIView):
                         # Numeric fields (direct equality, no LOWER())
                         "rating": ("user_rating", "number"),
                         "user_rating": ("user_rating", "number"),
+                        "advocate": ("username", "string"),
+                        "detractor": ("username", "string"),
                     }
                     
                     # Make a copy of the base filters
