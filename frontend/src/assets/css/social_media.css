@@ -126,3 +126,25 @@ body {
   }
 }
 
+/* ✅ Remove focus outline (black border) from all Recharts charts on click */
+.recharts-wrapper,
+.recharts-wrapper svg,
+.recharts-wrapper svg *,
+.recharts-surface,
+.recharts-bar-rectangle,
+.recharts-rectangle,
+.recharts-sector,
+.recharts-cell,
+.recharts-pie-sector,
+.recharts-treemap-node,
+.recharts-area-dot,
+.recharts-line-dot {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recharts-wrapper *:focus,
+.recharts-wrapper *:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
