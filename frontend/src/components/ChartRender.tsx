@@ -12,6 +12,8 @@ export interface DrillEvent {
   key: string;
   value: any;
   data: any;
+  secondaryKey?: string;   // ✅ For stacked bar: x-axis drill key
+  secondaryValue?: any;    // ✅ For stacked bar: x-axis value
 }
 
 interface ChartPayload {

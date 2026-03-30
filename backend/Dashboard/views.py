@@ -423,6 +423,8 @@ class SocialMediaDailyView(APIView):
         # =============== DRILLDOWN PARAMETERS ===============
         drill_key = request.GET.get("drill_key", "")      # e.g., 'platform', 'country', 'sentiment'
         drill_value = request.GET.get("drill_value", "")  # e.g., 'twitter', 'US', 'positive'
+        drill_key2 = request.GET.get("drill_key2", "")    # ✅ Secondary drill key (for stacked bar x-axis)
+        drill_value2 = request.GET.get("drill_value2", "") # ✅ Secondary drill value
 
         # ✅ ADD THIS BLOCK HERE
         INVALID_DRILL_KEYS = ["total_reviews", "avg_rating"]
@@ -431,6 +433,11 @@ class SocialMediaDailyView(APIView):
             print(f"⚠️ Ignoring invalid drill key: {drill_key}")
             drill_key = None
             drill_value = None
+        
+        if drill_key2 in INVALID_DRILL_KEYS:
+            print(f"⚠️ Ignoring invalid secondary drill key: {drill_key2}")
+            drill_key2 = None
+            drill_value2 = None
 
         # =============== DEBUG PRINT ===============
         print("\n===== REQUEST DEBUG =====")
@@ -445,6 +452,9 @@ class SocialMediaDailyView(APIView):
         if is_drilldown_request:
             print(f"Drill Key: {drill_key}")
             print(f"Drill Value: {drill_value}")
+            if drill_key2:
+                print(f"Drill Key2: {drill_key2}")
+                print(f"Drill Value2: {drill_value2}")
         print("========================\n")
 
         # =============== FIXED: Separate date params from filter params ===============
@@ -719,6 +729,48 @@ class SocialMediaDailyView(APIView):
                             import traceback
                             traceback.print_exc()
                     
+                    # ✅ Apply SECONDARY drill filter (for stacked bar: x-axis context)
+                    if drill_key2 and drill_value2:
+                        db_column2, col_type2 = COLUMN_MAP.get(drill_key2, (drill_key2, "string"))
+                        
+                        print(f"🔍 Secondary Drill - Key: {drill_key2}, Value: {drill_value2}, Column: {db_column2}, Type: {col_type2}")
+                        
+                        try:
+                            filter_condition2 = None
+                            filter_value2 = None
+                            
+                            if col_type2 == "number":
+                                filter_condition2 = f"{db_column2} = %s"
+                                filter_value2 = int(drill_value2)
+                            elif col_type2 == "date":
+                                if is_valid_date(drill_value2):
+                                    filter_condition2 = f"DATE({db_column2}) = %s"
+                                    filter_value2 = drill_value2
+                                else:
+                                    print(f"⚠️ Invalid date format for secondary filter: {drill_value2}")
+                            elif col_type2 == "hour":
+                                hour_int2 = convert_hour_format(drill_value2)
+                                if hour_int2 is not None:
+                                    filter_condition2 = f"EXTRACT(HOUR FROM {db_column2}) = %s"
+                                    filter_value2 = hour_int2
+                            elif col_type2 == "weekday":
+                                day_num2 = convert_weekday_format(drill_value2)
+                                if day_num2 is not None:
+                                    filter_condition2 = f"EXTRACT(DOW FROM {db_column2}) = %s"
+                                    filter_value2 = day_num2
+                            else:  # string
+                                filter_condition2 = f"LOWER({db_column2}) = %s"
+                                filter_value2 = str(drill_value2).lower()
+                            
+                            if filter_condition2 and filter_value2 is not None:
+                                drill_filters.append(filter_condition2)
+                                drill_filter_params.append(filter_value2)
+                                print(f"✅ Applied secondary filter: {filter_condition2} = {filter_value2}")
+                                
+                        except Exception as e:
+                            print(f"❌ Error applying secondary drill filter: {e}")
+                            import traceback
+                            traceback.print_exc()
                    
 
                     
@@ -1589,7 +1641,9 @@ class SocialMediaDailyView(APIView):
                             data=daily_sentiment,
                             x_key="day",
                             y_key="value",
-                            drill_key="sentiment",
+                            drill_key="date",
+                            segment_drill_key="sentiment",
+                            x_drill_key="date",
                             title="Daily Sentiment",
                             tooltip="Sentiment distribution per day",
                             icon="bi-bar-chart-fill",
@@ -1768,6 +1822,9 @@ class SocialMediaDailyView(APIView):
                             data=journey_sentiment,
                             x_key="stage",
                             y_key="value",
+                            drill_key="journey_stage",
+                            segment_drill_key="sentiment",
+                            x_drill_key="journey_stage",
                             title="Journey Stage vs Sentiment",
                             tooltip="Sentiment distribution by journey stage",
                             icon="bi-map",

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -18,11 +18,15 @@ export interface DrillEvent {
   key: string;
   value: any;
   data: any;
+  secondaryKey?: string;
+  secondaryValue?: any;
 }
 
 interface StackedBarConfig {
   xKey: string;
   drillKey?: string;
+  segmentDrillKey?: string; // for segment clicks (e.g., sentiment)
+  xDrillKey?: string;       // for x-axis mapping in drilldown (e.g., date, journey_stage)
   bars: {
     key: string;
     name?: string;
@@ -199,6 +203,8 @@ const StackedBarChart: React.FC<Props> = ({
   const {
     xKey,
     drillKey: configDrillKey,
+    segmentDrillKey: configSegmentDrillKey,
+    xDrillKey: configXDrillKey,
     bars = [],
     layout = "horizontal",
     showGrid = true,
@@ -212,6 +218,13 @@ const StackedBarChart: React.FC<Props> = ({
   } = config;
 
   const finalDrillKey = drillKey || configDrillKey || xKey;
+  // ✅ For segment clicks: which key represents the segment (e.g., "sentiment")
+  const finalSegmentDrillKey = configSegmentDrillKey || configDrillKey || "sentiment";
+  // ✅ For segment clicks: which key represents the x-axis in drilldown (e.g., "date", "journey_stage")
+  const finalXDrillKey = configXDrillKey || configDrillKey || xKey;
+
+  // ✅ Prevent double-fire: Cell onClick + BarChart onClick
+  const segmentClickedRef = useRef(false);
 
   console.log("STACKED BAR CONFIG:", {
     xKey,
@@ -254,42 +267,52 @@ const StackedBarChart: React.FC<Props> = ({
     };
   }, [isDate]);
 
-  /* ✅ FIXED: Segment-level click with dynamic key */
+  /* ✅ FIXED: Segment-level click sends BOTH segment + x-axis context */
   const handleSegmentClick = (entry: any, segmentKey: string) => {
     if (!onDrillDown || !entry) return;
 
+    // Mark that segment was clicked to prevent BarChart onClick double-fire
+    segmentClickedRef.current = true;
+    setTimeout(() => { segmentClickedRef.current = false; }, 100);
+
+    const xValue = entry[xKey];
+
     console.log("STACKED SEGMENT CLICK:", {
       segmentKey,
-      xValue: entry[xKey],
+      xValue,
       xKey,
-      finalDrillKey,
-      entryData: entry
+      finalSegmentDrillKey,
+      finalXDrillKey,
     });
 
+    // ✅ Primary: segment filter (e.g., sentiment=positive)
+    // ✅ Secondary: x-axis filter (e.g., date=2026-03-25 or journey_stage=awareness)
     onDrillDown({
       type: "bar",
-      key: finalDrillKey,
+      key: finalSegmentDrillKey,
       value: segmentKey,
+      secondaryKey: finalXDrillKey,
+      secondaryValue: xValue,
       data: {
-        [xKey]: entry[xKey],
+        [xKey]: xValue,
         segment: segmentKey,
         ...entry,
       },
     });
   };
 
-  /* ✅ FIXED: Bar area click with dynamic key */
+  /* ✅ Bar area click (background) — drills by x-axis only */
   const handleBarClick = (entry: any) => {
     if (!onDrillDown || !entry) return;
     
     console.log("BAR AREA CLICK:", {
       xValue: entry[xKey],
-      xKey
+      finalDrillKey,
     });
 
     onDrillDown({
       type: "bar",
-      key: xKey,
+      key: finalDrillKey,
       value: entry[xKey],
       data: entry,
     });
@@ -297,6 +320,9 @@ const StackedBarChart: React.FC<Props> = ({
 
   const handleChartClick = (state: any) => {
     if (!onDrillDown) return;
+
+    // ✅ Skip if a segment Cell was already clicked (prevents double-fire)
+    if (segmentClickedRef.current) return;
     
     const payload = extractPayloadFromEvent(state);
     if (payload) {

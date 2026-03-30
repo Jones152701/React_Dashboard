@@ -5,6 +5,8 @@ def build_chart(
     x_key,
     y_key=None,
     drill_key=None,   # ✅ ADDED
+    segment_drill_key=None,  # ✅ for stacked bar segment clicks
+    x_drill_key=None,        # ✅ for stacked bar x-axis drilldown
     title="",
     tooltip="",
     icon="",
@@ -119,6 +121,8 @@ def build_chart(
         config = {
             "xKey": x_key,
             "drillKey": drill_key,   # ✅ ADDED
+            "segmentDrillKey": segment_drill_key,  # ✅ for segment clicks
+            "xDrillKey": x_drill_key,  # ✅ for x-axis drilldown
             "layout": layout,
             "bars": bars,
             "margin": margin,

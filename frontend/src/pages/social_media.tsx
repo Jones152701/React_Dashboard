@@ -107,16 +107,19 @@ function SocialMedia() {
 
   const handleDrillDown = async (event: any) => {
     try {
-      // ✅ STEP 1: Use the key directly from the chart (no mapping needed)
-      // Charts already send the correct drillKey from their config
-
+      // ✅ STEP 1: Extract primary drill key/value
       const drillKey = event.key;
       const drillValue = event.value;
 
-      console.log("Drill Event:", event);
-      console.log("Using drillKey:", drillKey, "Value:", drillValue);
+      // ✅ Extract secondary drill key/value (for stacked bar segment clicks)
+      const drillKey2 = event.secondaryKey || null;
+      const drillValue2 = event.secondaryValue !== undefined ? String(event.secondaryValue) : null;
 
-      // ✅ STEP 2: OPEN SIDEBAR
+      console.log("Drill Event:", event);
+      console.log("Primary:", drillKey, "=", drillValue);
+      if (drillKey2) console.log("Secondary:", drillKey2, "=", drillValue2);
+
+      // ✅ STEP 2: OPEN SIDEBAR with context
       setDrill({
         open: true,
         loading: true,
@@ -134,6 +137,12 @@ function SocialMedia() {
       params.append("drill_key", drillKey);
       params.append("drill_value", drillValue);
       params.append("drill_type", event.type);
+
+      // ✅ Send secondary drill context (for stacked bar charts)
+      if (drillKey2 && drillValue2) {
+        params.append("drill_key2", drillKey2);
+        params.append("drill_value2", drillValue2);
+      }
 
       // ✅ ADD FILTER CONTEXT
       params.append("from_date", filters.fromDate);
