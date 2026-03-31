@@ -4,6 +4,7 @@ import Header from "../components/header/header";
 import Navbar from "../components/navbar/navbar";
 import SecondaryHeader from "../components/competitors-components/secondary-header/SecondaryHeader";
 import CompetitorCard from "../components/competitors-components/competitor-card/CompetitorCard";
+import MatrixCarousel from "../components/competitors-components/matrix-carousel/MatrixCarousel";
 import '../assets/css/Competitors.css'
 
 import favicon from "../assets/images/favicon.ico";
@@ -14,6 +15,12 @@ interface Competitor {
   competitor_type: string;
 }
 
+interface MatrixSlide {
+  tier: string;
+  competitor_type?: string;
+  html: string;
+}
+
 const Competitors: React.FC = () => {
 
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -21,8 +28,11 @@ const Competitors: React.FC = () => {
   const [types, setTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // 🔥 New state for search
+  // 🔥 State for search
   const [search, setSearch] = useState("");
+  
+  // 🔹 State for matrix slides (carousel)
+  const [matrixSlides, setMatrixSlides] = useState<MatrixSlide[]>([]);
 
   const [filters, setFilters] = useState({
     country: "United Kingdom",
@@ -65,6 +75,9 @@ const Competitors: React.FC = () => {
       setCompetitors(data.data.competitors || []);
       setCountries(data.filters.countries || []);
       setTypes(data.filters.competitor_types || []);
+      
+      // 🔹 Set matrix slides from API
+      setMatrixSlides(data.data.matrix_slides || []);
 
     } catch (err) {
       console.error("API Error:", err);
@@ -176,6 +189,17 @@ const Competitors: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* ─── Plans Overview Carousel ─── */}
+          {!loading && matrixSlides.length > 0 && (
+            <div className="competitors-matrix-section">
+              <h5 className="competitors-matrix-title">
+                <i className="bi bi-table"></i>
+                Plans Overview
+              </h5>
+              <MatrixCarousel slides={matrixSlides} />
+            </div>
+          )}
 
         </div>
 

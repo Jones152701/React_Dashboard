@@ -1,0 +1,263 @@
+/* ═══════════════════════════════════════════════
+   MATRIX CAROUSEL — Clean & Professional
+   ═══════════════════════════════════════════════ */
+
+.matrix-carousel {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  animation: carouselFadeIn 0.5s ease both;
+}
+
+@keyframes carouselFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── HEADER ─── */
+.carousel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px 0 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ─── TIER TABS ─── */
+.carousel-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.carousel-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Sora', sans-serif;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.carousel-tab i {
+  font-size: 12px;
+}
+
+.carousel-tab:hover {
+  background: #f9fafb;
+  color: #4b5563;
+}
+
+.carousel-tab.active {
+  background: #f9fafb;
+  color: #2c2c2c;
+  border-color: #e5e7eb;
+}
+
+/* ─── NAV BUTTONS ─── */
+.carousel-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.carousel-nav-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  color: #9ca3af;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.carousel-nav-btn:hover {
+  border-color: #d1d5db;
+  color: #374151;
+  background: #f9fafb;
+}
+
+.carousel-counter {
+  font-size: 11px;
+  font-weight: 600;
+  color: #d1d5db;
+  min-width: 32px;
+  text-align: center;
+}
+
+/* ─── PROGRESS BAR ─── */
+.carousel-progress-track {
+  height: 2px;
+  background: #f3f4f6;
+  margin: 12px 20px 0 20px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.carousel-progress-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: #6366F1;
+  transition: width 0.4s ease;
+}
+
+/* ─── VIEWPORT ─── */
+.carousel-viewport {
+  position: relative;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+/* ─── SLIDE ─── */
+.carousel-slide {
+  padding: 20px;
+}
+
+/* ─── Slide Header: Badge + Type ─── */
+.carousel-slide-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+/* Tier badge — subtle, not heavy */
+.carousel-slide-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.carousel-slide-badge i {
+  font-size: 13px;
+  color: #6366F1;
+}
+
+/* MNO / MVNO label next to tier badge */
+.carousel-type-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.carousel-type-label.mno {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+.carousel-type-label.mvno {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
+/* ─── SLIDE ANIMATIONS ─── */
+.carousel-slide-enter-right {
+  animation: slideInRight 0.35s ease both;
+}
+
+.carousel-slide-enter-left {
+  animation: slideInLeft 0.35s ease both;
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── DOT INDICATORS ─── */
+.carousel-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 20px 14px 20px;
+}
+
+.carousel-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: none;
+  background: #e5e7eb;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.carousel-dot:hover {
+  background: #9ca3af;
+}
+
+.carousel-dot.active {
+  width: 20px;
+  border-radius: 3px;
+  background: #6366F1;
+}
+
+/* ─── TABLE INSIDE CAROUSEL ─── */
+.carousel-slide .matrix-html-content {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow-x: auto;
+  background: #fff;
+  box-shadow: none;
+}
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .carousel-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .carousel-tabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .carousel-tab {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
+
+  .carousel-slide {
+    padding: 12px;
+  }
+}

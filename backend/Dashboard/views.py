@@ -1993,7 +1993,21 @@ class SocialMediaDailyView(APIView):
 
 
 
-class ComptitorsView(APIView):
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.db import connection
+
+import markdown
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+class CompetitorsView(APIView):
+    """
+    API View to fetch competitors data with filters for country and competitor type.
+    Returns competitors list, overall matrix as HTML, and available filters.
+    """
 
     def get(self, request):
         try:
@@ -2001,8 +2015,11 @@ class ComptitorsView(APIView):
             competitor_type = request.GET.get("competitor_type", "all")
 
             table = '"lens_src"."lyca_competitor_plan_data"'
+            matrix_table = '"lens_src"."lyca_competitor_overall_matrix"'
 
-            # 🔹 Build WHERE clause dynamically
+            # ===============================
+            # 🔹 WHERE CLAUSE
+            # ===============================
             where_clauses = []
             params = []
 
@@ -2019,7 +2036,7 @@ class ComptitorsView(APIView):
                 where_sql = "WHERE " + " AND ".join(where_clauses)
 
             # ===============================
-            # 🔹 MAIN QUERY (cards)
+            # 🔹 COMPETITORS (CARDS)
             # ===============================
             competitors_query = f"""
                 SELECT DISTINCT name, country, competitor_type
@@ -2029,7 +2046,26 @@ class ComptitorsView(APIView):
             """
 
             # ===============================
-            # 🔹 FILTER DROPDOWNS
+            # 🔹 OVERALL MATRIX (MARKDOWN VERSION)
+            # ===============================
+            matrix_query = f"""
+                SELECT country, competitor_type, tier, overall_matrix
+                FROM {matrix_table}
+                {where_sql}
+                ORDER BY 
+                    CASE 
+                        WHEN tier = 'Lite' THEN 1
+                        WHEN tier = 'Standard' THEN 2
+                        WHEN tier = 'Plus' THEN 3
+                        WHEN tier = 'Premium' THEN 4
+                        ELSE 5
+                    END,
+                    country,
+                    competitor_type
+            """
+
+            # ===============================
+            # 🔹 FILTERS
             # ===============================
             country_query = f"""
                 SELECT DISTINCT country
@@ -2045,7 +2081,7 @@ class ComptitorsView(APIView):
 
             with connection.cursor() as cursor:
 
-                # 🔹 Fetch competitors
+                # 🔹 competitors
                 cursor.execute(competitors_query, params)
                 competitors = [
                     {
@@ -2056,16 +2092,80 @@ class ComptitorsView(APIView):
                     for row in cursor.fetchall()
                 ]
 
-                # 🔹 Fetch countries
+                # 🔹 overall matrix - Build per-tier slides for carousel
+                cursor.execute(matrix_query, params)
+                matrix_rows = cursor.fetchall()
+
+                # 🔥 Build name → competitor_type lookup (for badge injection)
+                name_type_map = {}
+                for comp in competitors:
+                    name_type_map[comp["name"].strip().upper()] = comp["competitor_type"].strip().upper()
+
+                # 🔥 Group markdown by (tier + competitor_type)
+                from collections import OrderedDict
+                tier_type_markdown = OrderedDict()
+
+                for row in matrix_rows:
+                    comp_type = row[1] or "Other"  # competitor_type column
+                    tier = row[2] or "Other"
+                    matrix_text = row[3] or ""
+
+                    key = (tier, comp_type.upper())
+                    if key not in tier_type_markdown:
+                        tier_type_markdown[key] = ""
+                    tier_type_markdown[key] += f"{matrix_text}\n\n"
+
+                # 🔥 Convert each group's markdown to HTML → carousel slides
+                matrix_slides = []
+                md = markdown.Markdown(extensions=[
+                    'extra',
+                    'tables',
+                    'nl2br',
+                    'sane_lists'
+                ])
+
+                def inject_type_badges(html, name_type_map):
+                    """
+                    Inject MNO/MVNO badges into <th> headers.
+                    """
+                    import re
+
+                    def replace_th(match):
+                        content = match.group(1).strip()
+                        content_upper = content.upper()
+
+                        comp_type = name_type_map.get(content_upper)
+                        if comp_type:
+                            badge_class = comp_type.lower()
+                            badge = f' <span class="th-type-badge {badge_class}">{comp_type}</span>'
+                            return f"<th>{content}{badge}</th>"
+                        return match.group(0)
+
+                    return re.sub(r'<th>(.*?)</th>', replace_th, html)
+
+                for (tier, comp_type), md_text in tier_type_markdown.items():
+                    md.reset()
+                    html = md.convert(md_text.strip())
+
+                    # 🔥 Inject MNO/MVNO badges into table headers
+                    html = inject_type_badges(html, name_type_map)
+
+                    matrix_slides.append({
+                        "tier": tier,
+                        "competitor_type": comp_type,  # ✅ MNO or MVNO
+                        "html": html
+                    })
+
+                # 🔹 countries
                 cursor.execute(country_query)
                 countries = [row[0] for row in cursor.fetchall()]
 
-                # 🔹 Fetch competitor types
+                # 🔹 types
                 cursor.execute(type_query)
                 competitor_types = [row[0] for row in cursor.fetchall()]
 
             # ===============================
-            # 🔹 FINAL RESPONSE
+            # 🔹 RESPONSE
             # ===============================
             return Response({
                 "filters": {
@@ -2074,15 +2174,14 @@ class ComptitorsView(APIView):
                 },
                 "data": {
                     "total": len(competitors),
-                    "competitors": competitors
+                    "competitors": competitors,
+                    "matrix_slides": matrix_slides  # ✅ Array of {tier, html}
                 }
             })
 
         except Exception as e:
-            return Response({
-                "error": str(e)
-            }, status=500)
-
+            logger.error(f"Error in CompetitorsView: {str(e)}")
+            return Response({"error": str(e)}, status=500)
 
 
 

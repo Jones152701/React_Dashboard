@@ -347,3 +347,211 @@ body {
     padding-top: 150px;
   }
 }
+
+
+.matrix-box {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+
+/* ═══════════════════════════════════════════════
+   PLANS OVERVIEW / MATRIX SECTION
+   ═══════════════════════════════════════════════ */
+
+.competitors-matrix-section {
+  margin-top: 32px;
+  animation: cardFadeIn 0.4s ease both;
+  animation-delay: 0.2s;
+}
+
+.competitors-matrix-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c2c2c;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f0edff;
+}
+
+.competitors-matrix-title i {
+  color: #7B61FF;
+  font-size: 20px;
+}
+
+/* ─── Matrix HTML Content Wrapper ─── */
+.matrix-html-content {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* ─── Headings inside matrix ─── */
+.matrix-html-content h1,
+.matrix-html-content h2,
+.matrix-html-content h3,
+.matrix-html-content h4,
+.matrix-html-content h5,
+.matrix-html-content h6 {
+  padding: 16px 20px 8px 20px;
+  margin: 0;
+  color: #2c2c2c;
+  font-weight: 700;
+}
+
+.matrix-html-content h1 { font-size: 20px; }
+.matrix-html-content h2 { font-size: 18px; }
+.matrix-html-content h3 { font-size: 16px; color: #7B61FF; }
+.matrix-html-content h4 { font-size: 15px; }
+.matrix-html-content h5 { font-size: 14px; }
+
+/* ─── Paragraphs inside matrix ─── */
+.matrix-html-content p {
+  padding: 4px 20px;
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* ─── Horizontal rules ─── */
+.matrix-html-content hr {
+  border: none;
+  border-top: 1px solid #f0f0f5;
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   TABLE STYLING — Clean & Professional
+   ═══════════════════════════════════════════════ */
+
+.matrix-html-content {
+  overflow-x: auto;
+}
+
+.matrix-html-content table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: 'Sora', sans-serif;
+  table-layout: auto;
+}
+
+/* ─── Table Header ─── */
+.matrix-html-content thead th {
+  background: #f8f9fa;
+  color: #374151;
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 10px 16px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+/* ─── Table Body ─── */
+.matrix-html-content tbody tr {
+  transition: background 0.12s ease;
+}
+
+.matrix-html-content tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.matrix-html-content tbody tr:hover {
+  background: #f3f4f6;
+}
+
+.matrix-html-content tbody td {
+  padding: 10px 16px;
+  color: #374151;
+  border-bottom: 1px solid #f0f0f5;
+  vertical-align: top;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.matrix-html-content tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ─── First column emphasis ─── */
+.matrix-html-content tbody td:first-child {
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+}
+
+/* ─── Lists inside table cells ─── */
+.matrix-html-content td ul,
+.matrix-html-content td ol {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.matrix-html-content td li {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+/* ─── Strong text / bold ─── */
+.matrix-html-content strong {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+/* ─── Responsive: horizontal scroll ─── */
+@media (max-width: 768px) {
+  .matrix-html-content {
+    border-radius: 8px;
+  }
+
+  .matrix-html-content table {
+    min-width: 600px;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   MNO / MVNO BADGES IN TABLE HEADERS
+   ═══════════════════════════════════════════════ */
+
+.th-type-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+/* MNO → blue */
+.th-type-badge.mno {
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+}
+
+/* MVNO → green */
+.th-type-badge.mvno {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+
