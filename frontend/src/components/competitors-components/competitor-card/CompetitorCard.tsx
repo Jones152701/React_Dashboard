@@ -1,5 +1,6 @@
 import React from "react";
-import "./CompetitorCard..css"
+import "./CompetitorCard..css";
+import CountryFlag from "../../country-flag/CountryFlag";
 
 interface CompetitorCardProps {
   name: string;
@@ -8,84 +9,25 @@ interface CompetitorCardProps {
   image?: string;
 }
 
-/* 🔹 Helper function to get country code for flag */
-const getCountryCode = (country: string): string => {
-  const map: Record<string, string> = {
-    "United Kingdom": "gb",
-    "United States": "us",
-    "India": "in",
-    "Canada": "ca",
-    "Australia": "au",
-    "Germany": "de",
-    "France": "fr",
-    "Spain": "es",
-    "Italy": "it",
-    "Netherlands": "nl",
-    "Sweden": "se",
-    "Norway": "no",
-    "Denmark": "dk",
-    "Finland": "fi",
-    "Belgium": "be",
-    "Switzerland": "ch",
-    "Austria": "at",
-    "Ireland": "ie",
-    "Poland": "pl",
-    "Portugal": "pt",
-    "Greece": "gr",
-    "Czech Republic": "cz",
-    "Hungary": "hu",
-    "Romania": "ro",
-    "Bulgaria": "bg",
-    "Croatia": "hr",
-    "Slovakia": "sk",
-    "Slovenia": "si",
-    "Estonia": "ee",
-    "Latvia": "lv",
-    "Lithuania": "lt",
-    "Luxembourg": "lu",
-    "Malta": "mt",
-    "Cyprus": "cy",
-    "New Zealand": "nz",
-    "South Africa": "za",
-    "Brazil": "br",
-    "Mexico": "mx",
-    "Japan": "jp",
-    "South Korea": "kr",
-    "Singapore": "sg",
-    "Malaysia": "my",
-    "Thailand": "th",
-    "Vietnam": "vn",
-    "Indonesia": "id",
-    "Philippines": "ph",
-    "Turkey": "tr",
-    "UAE": "ae",
-    "Saudi Arabia": "sa",
-    "Israel": "il",
-    "Egypt": "eg",
-    "Nigeria": "ng",
-    "Kenya": "ke",
-    "Argentina": "ar",
-    "Chile": "cl",
-    "Colombia": "co",
-    "Peru": "pe",
-    "Venezuela": "ve"
-  };
-  return map[country] || "un"; // Return "un" for unknown countries
-};
-
 const CompetitorCard: React.FC<CompetitorCardProps> = ({
   name,
   type,
   country,
   image,
 }) => {
+  const [imgError, setImgError] = React.useState(false);
+
   return (
     <div className="competitor-card">
       
       {/* 🔹 Logo */}
       <div className="competitor-logo">
-        {image ? (
-          <img src={image} alt={name} />
+        {image && !imgError ? (
+          <img
+            src={image}
+            alt={name}
+            onError={() => setImgError(true)}
+          />
         ) : (
           <div className="logo-placeholder">
             {name.charAt(0)}
@@ -104,13 +46,7 @@ const CompetitorCard: React.FC<CompetitorCardProps> = ({
       {/* 🔹 Country with Flag */}
       {country && (
         <div className="competitor-country">
-          <img
-            src={`https://flagcdn.com/w20/${getCountryCode(country)}.png`}
-            alt={`Flag of ${country}`}
-            width="20"
-            height="15"
-            style={{ objectFit: "cover" }}
-          />
+          <CountryFlag country={country} width={20} height={15} />
           <span>{country}</span>
         </div>
       )}

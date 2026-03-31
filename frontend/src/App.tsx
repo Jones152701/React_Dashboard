@@ -3,7 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import Login from "./pages/login";
 import SocialMedia from "./pages/social_media";
 import LenAnalytics from "./pages/LensAnalytics";
-import Competitors from "./pages/competitors";
+import Competitors from "./pages/Competitors";
 
 
 function App() {

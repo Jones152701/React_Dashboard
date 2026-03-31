@@ -100,56 +100,83 @@ const Competitors: React.FC = () => {
             defaultFilters={filters}
             />
 
-        
-
-        {/* 🔹 Cards */}
-        <div className="analytics-content row mt-3">
-            {/* 🔹 Search and Results UI */}
-        <div className="d-flex justify-content-between align-items-center  mb-2">
-          
-          {/* 🔍 Search Input */}
-          <div style={{ width: "300px" }}>
-            <label className="fw-semibold text-muted small">SEARCH</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search by name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          
-          {/* 📊 Results Count */}
-          <div>
-            <label className="fw-semibold text-muted small">RESULTS</label>
-            <div className="badge bg-primary" style={{ fontSize: "13px", padding: "6px 10px", borderRadius: "8px" }}>
-              {filteredCompetitors.length} of {competitors.length} competitors
-            </div>
-          </div>
-          
-        </div>
-
-        {/* 🔹 Loading */}
-        {loading && (
-          <div className="text-center mt-4">Loading...</div>
-        )}
-          {!loading && filteredCompetitors.length === 0 && (
-            <div className="text-center text-muted">
-              No competitors found
-            </div>
-          )}
-
-          {/* 🔥 Use filteredCompetitors instead of competitors */}
-          {filteredCompetitors.map((c) => (
-            <div className="col-12 col-md-6 col-lg-3 mb-3" key={c.name}>
-              <CompetitorCard
-                name={c.name}
-                type={c.competitor_type}
-                country={c.country}
-                image={`/logos/${c.name.toLowerCase()}.png`}
+        {/* 🔹 Main Content */}
+        <div className="analytics-content">
+            
+          {/* ─── Search & Results Bar ─── */}
+          <div className="competitors-toolbar">
+            
+            {/* 🔍 Search Input */}
+            <div className="competitors-search-wrapper">
+              <i className="bi bi-search competitors-search-icon"></i>
+              <input
+                type="text"
+                className="competitors-search-input"
+                placeholder="Search competitors..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
               />
+              {search && (
+                <button
+                  className="competitors-search-clear"
+                  onClick={() => setSearch("")}
+                  title="Clear search"
+                >
+                  <i className="bi bi-x"></i>
+                </button>
+              )}
             </div>
-          ))}
+            
+            {/* 📊 Results Count */}
+            <div className="competitors-results-badge">
+              <span className="competitors-results-count">{filteredCompetitors.length}</span>
+              <span className="competitors-results-label">
+                of {competitors.length} competitors
+              </span>
+            </div>
+            
+          </div>
+
+          {/* ─── Cards Grid ─── */}
+          <div className="competitors-grid">
+            
+            {/* 🔹 Loading */}
+            {loading && (
+              <div className="competitors-empty-state">
+                <div className="competitors-spinner"></div>
+                <p>Loading competitors...</p>
+              </div>
+            )}
+
+            {/* 🔹 No results */}
+            {!loading && filteredCompetitors.length === 0 && (
+              <div className="competitors-empty-state">
+                <i className="bi bi-search" style={{ fontSize: 32, opacity: 0.3 }}></i>
+                <p>No competitors found</p>
+                {search && (
+                  <button
+                    className="competitors-clear-btn"
+                    onClick={() => setSearch("")}
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* 🔥 Cards */}
+            {!loading && filteredCompetitors.map((c) => (
+              <div className="competitors-card-col" key={c.name}>
+                <CompetitorCard
+                  name={c.name}
+                  type={c.competitor_type}
+                  country={c.country}
+                  image={`/logos/${c.name.toLowerCase()}.png`}
+                />
+              </div>
+            ))}
+          </div>
+
         </div>
 
       </div>

@@ -1,5 +1,6 @@
 import React from "react";
 import "./SecondaryHeader.css";
+import CountryFlag from "../../country-flag/CountryFlag";
 
 interface FiltersState {
   country: string;
@@ -14,32 +15,6 @@ interface FiltersProps {
   defaultFilters?: FiltersState;
   className?: string;
 }
-
-/* 🔹 Helper function */
-const getCountryCode = (country: string): string => {
-  const map: Record<string, string> = {
-    "United Kingdom": "gb",
-    "United States": "us",
-    "India": "in",
-    "Canada": "ca",
-    "Australia": "au",
-    "Germany": "de",
-    "France": "fr",
-    "Spain": "es",
-    "Italy": "it",
-    "Netherlands": "nl",
-    "Sweden": "se",
-    "Norway": "no",
-    "Denmark": "dk",
-    "Belgium": "be",
-    "Switzerland": "ch",
-    "Austria": "at",
-    "Ireland": "ie",
-    "Poland": "pl",
-    "Portugal": "pt"
-  };
-  return map[country] || "un";
-};
 
 const SecondaryHeader: React.FC<FiltersProps> = ({
   title = "Competitors Plan",
@@ -119,15 +94,12 @@ const SecondaryHeader: React.FC<FiltersProps> = ({
             <div
               className="country-dropdown-selected"
               onClick={(e) => {
-                e.stopPropagation();   // 🔥 FIX
+                e.stopPropagation();
                 setOpen(prev => !prev);
               }}
             >
               {filters.country !== "all" && (
-                <img
-                  src={`https://flagcdn.com/w20/${getCountryCode(filters.country)}.png`}
-                  alt=""
-                />
+                <CountryFlag country={filters.country} width={20} height={14} />
               )}
 
               <span>
@@ -149,7 +121,7 @@ const SecondaryHeader: React.FC<FiltersProps> = ({
                   onClick={() => handleCountrySelect("all")}
                 >
                   <span className="country-flag-placeholder"></span>
-                 
+                  <span>All Countries</span>
                 </div>
 
                 {/* Countries */}
@@ -159,10 +131,7 @@ const SecondaryHeader: React.FC<FiltersProps> = ({
                     className={`country-dropdown-item ${filters.country === c ? "active" : ""}`}
                     onClick={() => handleCountrySelect(c)}
                   >
-                    <img
-                      src={`https://flagcdn.com/w20/${getCountryCode(c)}.png`}
-                      alt={c}
-                    />
+                    <CountryFlag country={c} width={20} height={14} />
                     <span>{c}</span>
                   </div>
                 ))}
