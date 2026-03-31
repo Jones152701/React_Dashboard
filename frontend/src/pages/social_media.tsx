@@ -9,6 +9,7 @@ import AudienceTab from "../components/Social_Media_Components/AudienceTab/Audie
 import AiInsightsTab from "../components/Social_Media_Components/AIInsightsTab/AIInsightsTab";
 import Drilldown from "../components/Social_Media_Components/drilldown/Drilldown";
 import type { SocialMediaResponse } from "../types/socialMedia";
+import favicon from "../assets/images/favicon.ico"
 
 import "../assets/css/social_media.css";
 
@@ -56,6 +57,24 @@ function SocialMedia() {
     data: null,
     context: null,
   });
+
+    const setFavicon = (iconPath: string) => {
+  const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+
+  if (link) {
+    link.href = iconPath;
+  } else {
+    const newLink = document.createElement("link");
+    newLink.rel = "icon";
+    newLink.href = iconPath;
+    document.head.appendChild(newLink);
+  }
+};
+
+ useEffect(() => {
+    document.title = "Social Media";
+    setFavicon(favicon);
+  }, []);
 
   // ✅ FIXED: Dashboard API call - NO drillKey logic here
   useEffect(() => {
@@ -136,7 +155,7 @@ function SocialMedia() {
       params.append("type", "drilldown");
       params.append("drill_key", drillKey);
       params.append("drill_value", drillValue);
-      params.append("drill_type", event.type);
+      // params.append("drill_type", event.type);
 
       // ✅ Send secondary drill context (for stacked bar charts)
       if (drillKey2 && drillValue2) {

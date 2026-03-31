@@ -1,0 +1,128 @@
+
+
+html,
+body {
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  overflow-x: hidden !important;
+  font-family: 'Sora';
+  /* font-weight: 100; */
+  background: #f3f4f6;
+  font-family: 'Sora';
+
+
+}
+
+@font-face { 
+    font-family: 'Sora';
+    src: url('../fonts/Sora-Medium.woff2') format('woff2'),
+         url('../fonts/Sora-Medium.woff') format('woff');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+
+.analytics-content {
+
+  position: relative;
+
+  /* space for fixed header + subheader */
+  padding-top: 0px;
+
+  /* internal spacing */
+  padding-left: 3.9rem;
+  padding-right: 1.0rem;
+  padding-bottom: 20px;
+
+  background: #f3f4f6;
+
+  min-height: calc(100vh - 160px);
+
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+
+  overflow: visible;
+
+  z-index: 1;
+
+  transition: margin-left 0.3s ease,
+              transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.4s ease;
+
+  /* Page load fade-in */
+  animation: pageContentFadeIn 0.5s ease both;
+}
+
+@keyframes pageContentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* When drilldown sidebar is open, push content aside */
+.app-layout.sidebar-open .analytics-content {
+  transform: scale(0.97) translateX(-3%);
+  filter: brightness(0.97);
+  border-radius: 16px;
+}
+
+.app-layout.sidebar-open .page-wrap {
+  transition: filter 0.4s ease;
+  filter: blur(1px) brightness(0.98);
+  pointer-events: none;
+}
+
+
+
+/* sidebar expanded */
+.nb-nav.expanded ~ .page-content {
+  margin-left: 200px;
+}
+
+.modebar{
+  z-index: 10 !important;
+}
+
+.blur-overlay {
+  position: fixed;
+  inset: 0;
+
+  backdrop-filter: blur(4px);   /* ✅ REAL blur */
+  -webkit-backdrop-filter: blur(4px);
+
+  background: rgba(0,0,0,0.1); /* optional dim */
+
+  z-index: 4000;
+}
+
+/* BUT remove blur for drilldown */
+.drilldown-container {
+  filter: none !important;
+  pointer-events: auto;
+}
+
+/* tablet */
+@media (max-width: 1024px) {
+  .page-content {
+    padding-top: 150px;
+  }
+}
+
+/* mobile */
+@media (max-width: 768px) {
+  .page-content {
+    margin-left: 0;
+    padding-top: 160px;
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+}
+

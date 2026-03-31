@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from "react";
 import ChartCard from "../../Social_Media_Components/ChartCard/ChartCard";
 import ChartRenderer from "../../ChartRender";
-import AnimatedList from "../../component/AnimatedList";
+import AnimatedList from "../../animation-component/AnimatedList";
 
 /* ================= TYPES ================= */
 

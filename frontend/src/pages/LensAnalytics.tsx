@@ -11,7 +11,7 @@ import ChartCard from "../components/Social_Media_Components/ChartCard/ChartCard
 
 import ChartRenderer from "../components/ChartRender";
 import Cards from "../components/cards/Cards";
-
+import favicon from "../assets/images/favicon.ico"
 import "../assets/css/LensAnalytics.css";
 
 /* ================= TYPES ================= */
@@ -121,8 +121,28 @@ const LenAnalytics: React.FC = () => {
     );
   };
 
+  const setFavicon = (iconPath: string) => {
+  const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+
+  if (link) {
+    link.href = iconPath;
+  } else {
+    const newLink = document.createElement("link");
+    newLink.rel = "icon";
+    newLink.href = iconPath;
+    document.head.appendChild(newLink);
+  }
+};
+
+ useEffect(() => {
+    document.title = "Lens Overview";
+    setFavicon(favicon);
+  }, []);
+
+
   /* ================= API CALL ================= */
 
+   
   useEffect(() => {
     if (!filters.fromDate || !filters.toDate) return;
 

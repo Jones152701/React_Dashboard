@@ -4,6 +4,7 @@ import './Navbar.css';
 // ── Replace these with your actual image imports ──────────────────────────
 import lensIcon from '../../assets/images/lens_analytics_icon.png';
 import socialIcon from '../../assets/images/social_media_icon.png';
+import compIcon from '../../assets/images/competitor_icon.png'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,14 @@ const NAV_ITEMS: NavItem[] = [
     iconSrc: socialIcon,   // ← update path
     links: [
       { icon: 'D', label: 'Dashboard', href: '/social_media' },
+    ],
+  },
+    {
+    id: 'competitors',
+    title: 'Competitors',
+    iconSrc: compIcon,   // ← update path
+    links: [
+      { icon: 'P', label: 'Plans', href: '/competitors-plan' },
     ],
   },
 ];

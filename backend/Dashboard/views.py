@@ -387,9 +387,6 @@ class LensAnalyticsView(APIView):
 
 
 
-
-
-
 class SocialMediaDailyView(APIView):
 
     def get(self, request):
@@ -1994,6 +1991,97 @@ class SocialMediaDailyView(APIView):
             )
 
 
+
+
+class ComptitorsView(APIView):
+
+    def get(self, request):
+        try:
+            country = request.GET.get("country", "all")
+            competitor_type = request.GET.get("competitor_type", "all")
+
+            table = '"lens_src"."lyca_competitor_plan_data"'
+
+            # 🔹 Build WHERE clause dynamically
+            where_clauses = []
+            params = []
+
+            if country.lower() != "all":
+                where_clauses.append("LOWER(country) = LOWER(%s)")
+                params.append(country)
+
+            if competitor_type.lower() != "all":
+                where_clauses.append("LOWER(competitor_type) = LOWER(%s)")
+                params.append(competitor_type)
+
+            where_sql = ""
+            if where_clauses:
+                where_sql = "WHERE " + " AND ".join(where_clauses)
+
+            # ===============================
+            # 🔹 MAIN QUERY (cards)
+            # ===============================
+            competitors_query = f"""
+                SELECT DISTINCT name, country, competitor_type
+                FROM {table}
+                {where_sql}
+                ORDER BY name
+            """
+
+            # ===============================
+            # 🔹 FILTER DROPDOWNS
+            # ===============================
+            country_query = f"""
+                SELECT DISTINCT country
+                FROM {table}
+                ORDER BY country
+            """
+
+            type_query = f"""
+                SELECT DISTINCT competitor_type
+                FROM {table}
+                ORDER BY competitor_type
+            """
+
+            with connection.cursor() as cursor:
+
+                # 🔹 Fetch competitors
+                cursor.execute(competitors_query, params)
+                competitors = [
+                    {
+                        "name": row[0],
+                        "country": row[1],
+                        "competitor_type": row[2],
+                    }
+                    for row in cursor.fetchall()
+                ]
+
+                # 🔹 Fetch countries
+                cursor.execute(country_query)
+                countries = [row[0] for row in cursor.fetchall()]
+
+                # 🔹 Fetch competitor types
+                cursor.execute(type_query)
+                competitor_types = [row[0] for row in cursor.fetchall()]
+
+            # ===============================
+            # 🔹 FINAL RESPONSE
+            # ===============================
+            return Response({
+                "filters": {
+                    "countries": countries,
+                    "competitor_types": ["all"] + competitor_types
+                },
+                "data": {
+                    "total": len(competitors),
+                    "competitors": competitors
+                }
+            })
+
+        except Exception as e:
+            return Response({
+                "error": str(e)
+            }, status=500)
 
 
 

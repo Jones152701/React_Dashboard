@@ -15,9 +15,9 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 
   position: sticky;
-  top: 70px;
+ 
   z-index: 1000;
-
+  overflow: visible; 
   /* Slide-down on load */
   animation: filtersSlideDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -174,4 +174,139 @@
   .filters-right .filter-group {
     width: 100%;
   }
+}
+
+.custom-dropdown {
+  position: relative;
+  width: 220px;
+}
+
+/* ─── Selected trigger ─── */
+.country-dropdown-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1.5px solid #dcdfe4;
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #fff;
+  height: 38px;
+  font-size: 14px;
+  color: #2c2c2c;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.country-dropdown-selected:hover {
+  border-color: #b4adff;
+  box-shadow: 0 2px 8px rgba(123, 97, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.country-dropdown-selected img {
+  width: 20px;
+  height: 14px;
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+.arrow {
+  margin-left: auto;
+  font-size: 10px;
+  color: #8a8f98;
+  transition: transform 0.2s ease;
+}
+
+/* ─── Dropdown list ─── */
+.country-dropdown-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  max-height: 280px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1.5px solid #dcdfe4;
+  border-radius: 10px;
+  z-index: 99999;
+  pointer-events: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  animation: dropdownSlideIn 0.2s ease;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── Dropdown items ─── */
+.country-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #2c2c2c;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.country-dropdown-item:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.country-dropdown-item:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.country-dropdown-item:hover {
+  background: #7B61FF;
+  color: #fff;
+}
+
+.country-dropdown-item.active {
+  background: #f0edff;
+  color: #7B61FF;
+  font-weight: 600;
+}
+
+.country-dropdown-item.active:hover {
+  background: #7B61FF;
+  color: #fff;
+}
+
+.country-dropdown-item img {
+  width: 20px;
+  height: 14px;
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+/* Spacer placeholder for "All Countries" (no flag) */
+.country-flag-placeholder {
+  display: inline-block;
+  width: 20px;
+  height: 14px;
+}
+
+/* Scrollbar styling */
+.country-dropdown-list::-webkit-scrollbar {
+  width: 5px;
+}
+.country-dropdown-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.country-dropdown-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+.country-dropdown-list::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }

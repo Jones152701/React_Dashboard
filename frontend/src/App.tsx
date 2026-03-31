@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import Login from "./pages/login";
 import SocialMedia from "./pages/social_media";
 import LenAnalytics from "./pages/LensAnalytics";
+import Competitors from "./pages/competitors";
 
 
 function App() {
@@ -18,6 +19,8 @@ function App() {
       <Route path="/social_media" element={<SocialMedia />} />
 
       <Route path="LensAnalytics/Overview" element={<LenAnalytics />} />
+
+      <Route path="competitors-plan" element={<Competitors />} />
 
     </Routes>
 

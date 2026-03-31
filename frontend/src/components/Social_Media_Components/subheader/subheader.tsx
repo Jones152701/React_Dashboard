@@ -753,7 +753,7 @@ const SubHeader: React.FC<SubHeaderProps> = ({
 
           {/* Title */}
           <motion.h1 
-            className="sh-page-title"
+            className="sh-page-title h4 "
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
