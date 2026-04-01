@@ -7,6 +7,16 @@ export interface DrillEvent {
   data: any;
 }
 
+/* ================= PAGINATION TYPES ================= */
+
+export interface Pagination {
+  total_reviews: number;
+  total_pages: number;
+  current_page: number;
+  limit: number;
+  per_page?: number;  // Optional alias for limit
+}
+
 /* ================= WORD CLOUD TYPES ================= */
 
 // ✅ Config type
@@ -14,6 +24,7 @@ export interface WordCloudConfig {
   minFontSize?: number;
   maxFontSize?: number;
   padding?: number;
+  colors?: string[];  // ✅ Added colors support
 }
 
 // ✅ New format
@@ -35,6 +46,20 @@ export interface DrillState {
     key: string;
     value: any;
   } | null;
+  // ✅ ADDED: fetch function for pagination
+  fetch?: (params: DrillFetchParams) => void;
+}
+
+/* ================= FETCH PARAMS ================= */
+
+export interface DrillFetchParams {
+  page: number;
+  type: string;
+  context?: {
+    key: string;
+    value: any;
+  };
+  limit?: number;  // Optional: items per page
 }
 
 /* ================= RESPONSE ================= */
@@ -53,6 +78,9 @@ export interface DrillResponse {
   wordcloud: WordCloudData;
 
   reviews: DrillReview[];
+  
+  // ✅ ADDED: pagination support
+  pagination?: Pagination;
 }
 
 /* ================= CHART ================= */
@@ -66,6 +94,11 @@ export interface DrillChart {
   data: any[];
   is_date?: boolean;
   layout?: "horizontal" | "vertical";
+  icon?: string;  // Optional icon for chart title
+  config?: {
+    drillKey?: string;  // For nested drilldown
+    [key: string]: any;
+  };
 }
 
 /* ================= REVIEW ================= */
@@ -76,4 +109,10 @@ export interface DrillReview {
   rating: number;
   message: string;
   date: string;
+  created_date?: string;  // Alias for date
+  sentiment?: string;     // Optional sentiment analysis
+  country?: string;       // Optional country
+  link?: string;          // Optional original review link
 }
+
+

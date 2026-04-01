@@ -114,7 +114,7 @@ const Competitors: React.FC = () => {
             />
 
         {/* 🔹 Main Content */}
-        <div className="analytics-content">
+        <div className="analyticscontent">
             
           {/* ─── Search & Results Bar ─── */}
           <div className="competitors-toolbar">

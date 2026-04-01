@@ -7,7 +7,10 @@ from collections import Counter
 from datetime import datetime, timedelta
 from .chart_builder import build_chart
 from .word_cloud import  generate_wordcloud
+import markdown
+import logging
 
+logger = logging.getLogger(__name__)
 
 
 
@@ -904,7 +907,8 @@ class SocialMediaDailyView(APIView):
 
                     print(f"📝 Word cloud words: {len(wordcloud)}")
                     
-                    # =============== REVIEWS LIST ===============
+                    # =============== REVIEWS LIST (PAGINATED) ===============
+
                     review_query = f"""
                         SELECT 
                             username,
@@ -918,12 +922,16 @@ class SocialMediaDailyView(APIView):
                         FROM {table}
                         {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
                         ORDER BY created_date DESC
-                        LIMIT 50
+                        LIMIT %s OFFSET %s
                     """
-                    
-                    cursor.execute(review_query, drill_params)
+
+                    # Add pagination params
+                    paginated_params = drill_params.copy()
+                    paginated_params.extend([limit, offset])
+
+                    cursor.execute(review_query, paginated_params)
                     review_rows = cursor.fetchall()
-                    
+
                     reviews = [
                         {
                             "username": row[0],
@@ -937,8 +945,25 @@ class SocialMediaDailyView(APIView):
                         }
                         for row in review_rows
                     ]
-                    
-                    print(f"📋 Reviews returned: {len(reviews)}")
+
+                    print(f"📋 Reviews returned (page {page}): {len(reviews)}")
+
+
+                    # =============== TOTAL COUNT FOR PAGINATION ===============
+
+                    count_query = f"""
+                        SELECT COUNT(*)
+                        FROM {table}
+                        {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                    """
+
+                    cursor.execute(count_query, drill_params)
+                    total_reviews = cursor.fetchone()[0] or 0
+
+                    # Calculate total pages
+                    total_pages = math.ceil(total_reviews / limit) if total_reviews > 0 else 0
+
+                    print(f"📊 Total Reviews: {total_reviews}, Total Pages: {total_pages}")
                     
                     # =============== BUILD CHARTS ===============
                     charts = []
@@ -1007,7 +1032,7 @@ class SocialMediaDailyView(APIView):
                     print(f"Drill Key: {drill_key}, Drill Value: {drill_value}")
                     print(f"Total Reviews (filtered): {cards['total_reviews']}")
                     print(f"Percentage of total: {cards['percentage_of_total']}%")
-                    print(f"Reviews returned: {len(reviews)}")
+                    print(f"Reviews returned: {len(reviews)} (page {page} of {total_pages})")
                     print(f"Word cloud words: {len(wordcloud)}")
                     print(f"Charts built: {len(charts)}")
                     print(f"  - Daily Trend: {'✓' if daily_trend and drill_key not in ['text', 'hour', 'day'] else '⊘'}")
@@ -1026,7 +1051,7 @@ class SocialMediaDailyView(APIView):
                             "config": {
                                 "minFontSize": 12,
                                 "maxFontSize": 40,
-                                "padding": 0.3,  # ✅ FIXED comma
+                                "padding": 0.3,
 
                                 "colors": [
                                     "#6366F1",
@@ -1040,12 +1065,22 @@ class SocialMediaDailyView(APIView):
 
                         "reviews": reviews,
 
+                        # ✅ Pagination metadata for frontend
+                        "pagination": {
+                            "total_reviews": total_reviews,
+                            "total_pages": total_pages,
+                            "current_page": page,
+                            "limit": limit,
+                        },
+
                         "context": {
                             "key": drill_key,
                             "value": drill_value,
                             "type": "drilldown"
                         }
                     })
+               
+               
                 # =============== FOR REVIEW REQUESTS - ONLY RETURN REVIEWS ===============
                 elif is_review_request:
                     
@@ -1993,15 +2028,7 @@ class SocialMediaDailyView(APIView):
 
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.db import connection
 
-import markdown
-
-import logging
-
-logger = logging.getLogger(__name__)
 
 class CompetitorsView(APIView):
     """

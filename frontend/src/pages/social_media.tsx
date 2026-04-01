@@ -22,6 +22,7 @@ interface DrillState {
     key: string;
     value: any;
   } | null;
+  fetch?: (params: any) => void;
 }
 
 function SocialMedia() {
@@ -122,40 +123,17 @@ function SocialMedia() {
     fetchDashboardData();
   }, [filters]);
 
-  /* ---------------- DRILLDOWN HANDLER (FIXED) ---------------- */
+  /* ---------------- DRILLDOWN FETCH (REUSABLE) ---------------- */
 
-  const handleDrillDown = async (event: any) => {
+  const fetchDrilldown = async (drillKey: string, drillValue: any, drillKey2?: string | null, drillValue2?: string | null, page: number = 1) => {
     try {
-      // ✅ STEP 1: Extract primary drill key/value
-      const drillKey = event.key;
-      const drillValue = event.value;
-
-      // ✅ Extract secondary drill key/value (for stacked bar segment clicks)
-      const drillKey2 = event.secondaryKey || null;
-      const drillValue2 = event.secondaryValue !== undefined ? String(event.secondaryValue) : null;
-
-      console.log("Drill Event:", event);
-      console.log("Primary:", drillKey, "=", drillValue);
-      if (drillKey2) console.log("Secondary:", drillKey2, "=", drillValue2);
-
-      // ✅ STEP 2: OPEN SIDEBAR with context
-      setDrill({
-        open: true,
-        loading: true,
-        data: null,
-        context: {
-          key: drillKey,
-          value: drillValue,
-        },
-      });
-
-      // ✅ STEP 3: BUILD REQUEST
+      // ✅ BUILD REQUEST
       const params = new URLSearchParams();
 
       params.append("type", "drilldown");
       params.append("drill_key", drillKey);
       params.append("drill_value", drillValue);
-      // params.append("drill_type", event.type);
+      params.append("page", String(page));
 
       // ✅ Send secondary drill context (for stacked bar charts)
       if (drillKey2 && drillValue2) {
@@ -176,7 +154,6 @@ function SocialMedia() {
       }
 
       // ✅ FIXED: DO NOT send sentiment filter if drilling on sentiment
-      // This prevents double-filtering when drilling down on sentiment segments
       if (
         filters.sentiments && 
         !filters.sentiments.includes("all") &&
@@ -188,16 +165,66 @@ function SocialMedia() {
       const url = `http://localhost:8000/social_media/?${params.toString()}`;
       console.log("Drilldown API:", url);
 
-      // ✅ STEP 4: FETCH
+      // ✅ FETCH
       const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
 
-      const result = await response.json();
+      return await response.json();
+    } catch (err) {
+      console.error("Drilldown fetch error:", err);
+      return null;
+    }
+  };
 
-      // ✅ STEP 5: UPDATE STATE
+  /* ---------------- DRILLDOWN HANDLER (FIXED) ---------------- */
+
+  const handleDrillDown = async (event: any) => {
+    try {
+      // ✅ STEP 1: Extract primary drill key/value
+      const drillKey = event.key;
+      const drillValue = event.value;
+
+      // ✅ Extract secondary drill key/value (for stacked bar segment clicks)
+      const drillKey2 = event.secondaryKey || null;
+      const drillValue2 = event.secondaryValue !== undefined ? String(event.secondaryValue) : null;
+
+      console.log("Drill Event:", event);
+      console.log("Primary:", drillKey, "=", drillValue);
+      if (drillKey2) console.log("Secondary:", drillKey2, "=", drillValue2);
+
+      // ✅ Create fetch function for pagination (no loading state — skeleton handled in Drilldown)
+      const drillFetch = async (params: any) => {
+        const page = params?.page || 1;
+
+        const result = await fetchDrilldown(drillKey, drillValue, drillKey2, drillValue2, page);
+
+        if (result) {
+          setDrill((prev) => ({
+            ...prev,
+            data: result,
+          }));
+        }
+      };
+
+      // ✅ STEP 2: OPEN SIDEBAR with context + fetch function
+      setDrill({
+        open: true,
+        loading: true,
+        data: null,
+        context: {
+          key: drillKey,
+          value: drillValue,
+        },
+        fetch: drillFetch,
+      });
+
+      // ✅ STEP 3: Initial fetch (page 1)
+      const result = await fetchDrilldown(drillKey, drillValue, drillKey2, drillValue2, 1);
+
+      // ✅ STEP 4: UPDATE STATE
       setDrill((prev) => ({
         ...prev,
         loading: false,
