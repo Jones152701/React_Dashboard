@@ -752,3 +752,17 @@
 
 .drill-review-skeleton:nth-child(5) .skel-bar,
 .drill-review-skeleton:nth-child(5) .skel-circle { animation-delay: 0.4s; }
+
+/* ================= CHART SKELETON ================= */
+.drill-chart-skeleton {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 24px 16px;
+}
+
+.skel-chart-bar {
+  border-radius: 4px;
+}

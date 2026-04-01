@@ -32,13 +32,21 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const reviewsRef = useRef<HTMLDivElement>(null);
 
+  /* ── Delay chart render until sidebar animation completes ── */
+  const [chartsReady, setChartsReady] = useState(false);
+
   useEffect(() => {
     if (drill.open) {
       setVisible(true);
       setIsClosing(false);
+      setChartsReady(false);
+      // Wait for sidebar slide-in to finish before rendering charts
+      const t = setTimeout(() => setChartsReady(true), 420);
+      return () => clearTimeout(t);
     } else if (visible) {
       // Play close animation, then unmount
       setIsClosing(true);
+      setChartsReady(false);
       const timer = setTimeout(() => {
         setVisible(false);
         setIsClosing(false);
@@ -363,14 +371,23 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
                   </h4>
 
                   <div className="p-4">
-                    <ChartRenderer
-                      chart={chart}
-                      selectedValue={drill.context?.value}
-                      drillKey={chart?.config?.drillKey}
-                      onDrillDown={(event) => {
-                        console.log("Nested drill:", event);
-                      }}
-                    />
+                    {chartsReady ? (
+                      <ChartRenderer
+                        chart={chart}
+                        selectedValue={drill.context?.value}
+                        drillKey={chart?.config?.drillKey}
+                        onDrillDown={(event) => {
+                          console.log("Nested drill:", event);
+                        }}
+                      />
+                    ) : (
+                      <div className="drill-chart-skeleton" style={{ height: chart.config?.height || 300 }}>
+                        <div className="skel-bar skel-chart-bar" style={{ width: '60%', height: 8 }}></div>
+                        <div className="skel-bar skel-chart-bar" style={{ width: '80%', height: 8 }}></div>
+                        <div className="skel-bar skel-chart-bar" style={{ width: '45%', height: 8 }}></div>
+                        <div className="skel-bar skel-chart-bar" style={{ width: '70%', height: 8 }}></div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
