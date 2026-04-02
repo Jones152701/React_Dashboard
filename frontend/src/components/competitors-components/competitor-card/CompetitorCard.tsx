@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import "./CompetitorCard..css";
 import CountryFlag from "../../country-flag/CountryFlag";
 
@@ -16,10 +17,24 @@ const CompetitorCard: React.FC<CompetitorCardProps> = ({
   image,
 }) => {
   const [imgError, setImgError] = React.useState(false);
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    const clean = (str: string) =>
+      str
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+
+    const slug = `${clean(name)}__${clean(type)}__${clean(country || "")}`;
+
+    navigate(`/${slug}`);
+  };
 
   return (
-    <div className="competitor-card">
-      
+    <div className="competitor-card" onClick={handleClick}>
+
       {/* 🔹 Logo */}
       <div className="competitor-logo">
         {image && !imgError ? (

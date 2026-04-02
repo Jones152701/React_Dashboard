@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-
+import { getCompetitorLogo } from "../utils/getCompetitorLogo";
 import Header from "../components/header/header";
 import Navbar from "../components/navbar/navbar";
 import SecondaryHeader from "../components/competitors-components/secondary-header/SecondaryHeader";
@@ -184,7 +184,7 @@ const Competitors: React.FC = () => {
                   name={c.name}
                   type={c.competitor_type}
                   country={c.country}
-                  image={`/logos/${c.name.toLowerCase()}.png`}
+                  image={getCompetitorLogo(c.name)}
                 />
               </div>
             ))}

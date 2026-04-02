@@ -1,0 +1,110 @@
+/* ================= HEADER CENTER ================= */
+
+.competitor-header {
+  text-align: center;
+}
+
+
+
+.competitor-section {
+  margin-top: 30px;
+}
+
+.plan-card, .tier-card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+/* ================= MARKDOWN BASE ================= */
+
+.plan-card, .tier-card {
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+/* ================= HEADINGS (STRONGER LIKE IMAGE) ================= */
+
+.plan-card h1,
+.tier-card h1 {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 20px 0 12px;
+}
+
+.plan-card h2,
+.tier-card h2 {
+  font-size: 25px;
+  font-weight: 700;
+  margin: 18px 0 10px;
+}
+
+.plan-card h3,
+.tier-card h3 {
+  font-size: 25px;
+  font-weight: 700;
+  margin: 16px 0 8px;
+}
+
+.plan-card h4,
+.tier-card h4 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 14px 0 6px;
+}
+
+/* Paragraph */
+.plan-card p, .tier-card p {
+  margin: 8px 0;
+  
+}
+
+/* ================= TABLE ================= */
+
+.plan-card table,
+.tier-card table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+}
+
+/* Header */
+.plan-card th,
+.tier-card th {
+  background: #f5f6f8;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px;
+  border: 1px solid #ddd;
+}
+
+/* Cells */
+.plan-card td,
+.tier-card td {
+  padding: 10px;
+  border: 1px solid #ddd;
+}
+
+/* Row hover */
+.plan-card tr:hover,
+.tier-card tr:hover {
+  background: #fafafa;
+}
+
+/* ================= LIST ================= */
+
+.plan-card ul,
+.plan-card ol {
+  padding-left: 20px;
+  margin: 10px 0;
+}
+
+/* ================= LINKS ================= */
+
+.plan-card a {
+  color: #007bff;
+  text-decoration: underline;
+}

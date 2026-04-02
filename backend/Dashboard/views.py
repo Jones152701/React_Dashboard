@@ -1034,7 +1034,8 @@ class SocialMediaDailyView(APIView):
                         ))
                     
                     # Sentiment Distribution Chart
-                    if sentiment_distribution:
+
+                    if sentiment_distribution and not drill_key2:
                         
                         charts.append(build_chart(
                             chart_id="sentiment_distribution",
@@ -2037,6 +2038,113 @@ class CompetitorsView(APIView):
             return Response({"error": str(e)}, status=500)
 
 
+class CompetitorDetailView(APIView):
+
+    def get(self, request):
+        name = request.GET.get("name")
+        country = request.GET.get("country")
+        comp_type = request.GET.get("type")
+
+        plan_table = '"lens_src"."lyca_competitor_plan_data"'
+        tier_table = '"lens_src"."lyca_competitor_tier_analysis"'
+
+        # 🔥 Markdown instance (reuse like your old code)
+        md = markdown.Markdown(extensions=[
+            'extra',
+            'codehilite',
+            'tables',
+            'toc',
+            'nl2br',
+            'sane_lists',
+        ])
+
+        with connection.cursor() as cursor:
+
+            # ===============================
+            # 🔹 STEP 1: LATEST DATE
+            # ===============================
+            cursor.execute(f"""
+                SELECT MAX(date)
+                FROM {plan_table}
+                WHERE LOWER(name) = LOWER(%s)
+                AND LOWER(country) = LOWER(%s)
+                AND LOWER(competitor_type) = LOWER(%s)
+            """, [name, country, comp_type])
+
+            latest_date = cursor.fetchone()[0]
+
+            if not latest_date:
+                return Response({"error": "No data found"}, status=404)
+
+            # ===============================
+            # 🔹 STEP 2: PLANS
+            # ===============================
+            cursor.execute(f"""
+                SELECT name, country, competitor_type, plans, date
+                FROM {plan_table}
+                WHERE LOWER(name) = LOWER(%s)
+                AND LOWER(country) = LOWER(%s)
+                AND LOWER(competitor_type) = LOWER(%s)
+                AND date = %s
+            """, [name, country, comp_type, latest_date])
+
+            plan_rows = cursor.fetchall()
+            plan_columns = [col[0] for col in cursor.description]
+
+            plans = []
+            for row in plan_rows:
+                item = dict(zip(plan_columns, row))
+
+                # 🔥 Markdown → HTML
+                if item.get("plans"):
+                    md.reset()
+                    item["plans_html"] = md.convert(item["plans"])
+                else:
+                    item["plans_html"] = "<em>No plan details available</em>"
+
+                plans.append(item)
+
+            # ===============================
+            # 🔹 STEP 3: TIER ANALYSIS
+            # ===============================
+            cursor.execute(f"""
+                SELECT tier, competitor_matrix
+                FROM {tier_table}
+                WHERE LOWER(competitor_name) = LOWER(%s)
+                AND LOWER(country) = LOWER(%s)
+                AND LOWER(competitor_type) = LOWER(%s)
+                AND date = %s
+            """, [name, country, comp_type, latest_date])
+
+            tier_rows = cursor.fetchall()
+            tier_columns = [col[0] for col in cursor.description]
+
+            tiers = []
+            for row in tier_rows:
+                item = dict(zip(tier_columns, row))
+
+                # 🔥 Markdown → HTML
+                if item.get("competitor_matrix"):
+                    md.reset()
+                    item["matrix_html"] = md.convert(item["competitor_matrix"])
+                else:
+                    item["matrix_html"] = "<em>No matrix data</em>"
+
+                tiers.append(item)
+
+        # ===============================
+        # 🔹 RESPONSE
+        # ===============================
+        return Response({
+            "meta": {
+                "name": name,
+                "country": country,
+                "type": comp_type,
+                "date": latest_date
+            },
+            "plans": plans,
+            "tiers": tiers
+        })
 
 
 
