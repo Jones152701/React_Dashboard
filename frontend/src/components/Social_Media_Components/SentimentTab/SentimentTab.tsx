@@ -182,17 +182,18 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
     (data?.top_hashtags?.config as HashtagConfig) || {};
 
 
-  const hashtags = Object.entries(hashtagsObj).map(([text, value]) => ({
-    text: text.replace("#", ""),
-    value: value as number,
-  }));
+const hashtags = Object.entries(hashtagsObj).map(([text, value]) => ({
+  text,                      // ✅ keep original "#lycamobile"
+  display: text.replace("#", ""), // ✅ only for UI
+  value: value as number,
+}));
 
 
   const handleHashtagClick = (tag: string) => {
     if (onDrillDown) {
       onDrillDown({
         type: "word",
-        key: "text",
+        key: "hashtag",
         value: tag,
         data: data,
       });
@@ -290,7 +291,7 @@ const SocialMediaChart: React.FC<Props> = ({ data, loading, onDrillDown }) => {
                   >
                     <div className="hashtag-left">
                       <span className="hash-symbol">#</span>
-                      <span className="hashtag-text">{tag.text}</span>
+                      <span className="hashtag-text">{tag.display}</span>
                     </div>
 
                     <div className="hashtag-count">

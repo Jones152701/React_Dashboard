@@ -389,6 +389,15 @@ class LensAnalyticsView(APIView):
         })
 
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def run_query(query, params):
+    """Execute a SQL query in its own DB connection (thread-safe)."""
+    from django.db import connections
+    conn = connections['default']
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall()
 
 class SocialMediaDailyView(APIView):
 
@@ -618,7 +627,8 @@ class SocialMediaDailyView(APIView):
                         "rating": ("user_rating", "number"),
                         "user_rating": ("user_rating", "number"),
                         "advocate": ("username", "string"),
-                "detractor": ("username", "string"),
+                        "detractor": ("username", "string"),
+                        "hashtag": ("message", "hashtag"),
                     }
                     
                     # Make a copy of the base filters
@@ -682,9 +692,22 @@ class SocialMediaDailyView(APIView):
                                 
                                 # Special handling for text/word cloud drilldown
                                 if drill_key == "text":
+                                    value = str(drill_value).lower().strip()
+
                                     filter_condition = f"LOWER({db_column}) LIKE %s"
                                     filter_value = f"%{value}%"
-                                    print(f"✅ Applied text search: {db_column} LIKE '%{value}%'")
+
+                                    print(f"✅ Applied word filter: {value}")
+                                elif col_type == "hashtag":
+                                    value = str(drill_value).lower().strip()
+
+                                    if not value.startswith("#"):
+                                        value = f"#{value}"
+
+                                    filter_condition = f"{db_column} ~* %s"
+                                    filter_value = rf"(^|\s){re.escape(value)}(\s|$)"
+
+                                    print(f"✅ Applied hashtag filter: {value}")
                                 else:
                                     filter_condition = f"LOWER({db_column}) = %s"
                                     filter_value = value
@@ -787,7 +810,10 @@ class SocialMediaDailyView(APIView):
                     drill_params = drill_filter_params.copy()
                     drill_params.extend([current_from_str, current_to_str])
                     
-                    # =============== KPI CARDS ===============
+                    # =============== PREPARE ALL DRILLDOWN QUERIES ===============
+                    queries = {}
+                    
+                    # 1. KPI CARDS
                     kpi_query = f"""
                         SELECT
                             COUNT(*) as total_reviews,
@@ -796,41 +822,17 @@ class SocialMediaDailyView(APIView):
                         FROM {table}
                         {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
                     """
+                    queries['kpi'] = (kpi_query, drill_params)
                     
-                    print(f"📊 KPI Query: {kpi_query}")
-                    print(f"📊 KPI Params: {drill_params}")
-                    
-                    cursor.execute(kpi_query, drill_params)
-                    kpi_row = cursor.fetchone()
-                    
-                    total_reviews = kpi_row[0] or 0 if kpi_row else 0
-                    avg_rating = float(kpi_row[1] or 0) if kpi_row else 0
-                    avg_sentiment = float(kpi_row[2] or 0) if kpi_row else 0
-                    
-                    # Get total for percentage calculation
+                    # 2. Total for percentage calculation
                     total_query = f"""
                         SELECT COUNT(*)
                         FROM {table}
                         WHERE created_date >= %s AND created_date < %s
                     """
+                    queries['total'] = (total_query, [current_from_str, current_to_str])
                     
-                    cursor.execute(total_query, [current_from_str, current_to_str])
-                    grand_total = cursor.fetchone()[0] or 1
-                    
-                    percentage = round((total_reviews / grand_total) * 100, 2) if grand_total > 0 else 0
-                    
-                    cards = {
-                        "total_reviews": total_reviews,
-                        "avg_rating": round(avg_rating, 2),
-                        "avg_sentiment_score": round(avg_sentiment, 3),
-                        "percentage_of_total": percentage
-                    }
-                    
-                    print(f"📊 KPI Results - Filtered: {total_reviews}, Total: {grand_total}, Percentage: {percentage}%")
-                    
-                    # =============== DAILY TREND ===============
-                    daily_trend = []
-                    # Skip daily trend for text, hour, and weekday drills
+                    # 3. DAILY TREND
                     if drill_key not in ["text", "hour", "day"]:
                         trend_query = f"""
                             SELECT DATE(created_date) as day, COUNT(*) as count
@@ -839,20 +841,9 @@ class SocialMediaDailyView(APIView):
                             GROUP BY DATE(created_date)
                             ORDER BY day
                         """
-                        
-                        cursor.execute(trend_query, drill_params)
-                        trend_rows = cursor.fetchall()
-                        
-                        daily_trend = [
-                            {"day": row[0].strftime("%Y-%m-%d") if hasattr(row[0], 'strftime') else row[0], "count": row[1]}
-                            for row in trend_rows
-                        ]
-                        
-                        print(f"📈 Daily trend rows: {len(daily_trend)}")
-                    else:
-                        print(f"📈 Skipping daily trend for {drill_key} drilldown")
+                        queries['trend'] = (trend_query, drill_params)
                     
-                    # =============== PLATFORM DISTRIBUTION ===============
+                    # 4. PLATFORM DISTRIBUTION
                     platform_query = f"""
                         SELECT platform, COUNT(*) as count
                         FROM {table}
@@ -860,55 +851,26 @@ class SocialMediaDailyView(APIView):
                         GROUP BY platform
                         ORDER BY count DESC
                     """
+                    queries['platform'] = (platform_query, drill_params)
                     
-                    cursor.execute(platform_query, drill_params)
-                    platform_rows = cursor.fetchall()
-                    
-                    platform_distribution = [
-                        {"platform": row[0] or "Unknown", "count": row[1]}
-                        for row in platform_rows
-                    ]
-                    
-                    print(f"📱 Platform distribution rows: {len(platform_distribution)}")
-                    
-                    # =============== SENTIMENT DISTRIBUTION ===============
+                    # 5. SENTIMENT DISTRIBUTION
                     sentiment_query = f"""
                         SELECT sentiment, COUNT(*) as count
                         FROM {table}
                         {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
                         GROUP BY sentiment
                     """
+                    queries['sentiment'] = (sentiment_query, drill_params)
                     
-                    cursor.execute(sentiment_query, drill_params)
-                    sentiment_rows = cursor.fetchall()
-                    
-                    sentiment_distribution = [
-                        {"name": row[0] or "Unknown", "value": row[1]}
-                        for row in sentiment_rows
-                    ]
-                    
-                    print(f"🎯 Sentiment distribution rows: {len(sentiment_distribution)}")
-                    
-                    # =============== WORD CLOUD ===============
-
-                    word_counter = Counter()
-                    
+                    # 6. WORD CLOUD
                     text_query = f"""
                         SELECT message
                         FROM {table}
                         {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
                     """
+                    queries['text'] = (text_query, drill_params)
                     
-                    cursor.execute(text_query, drill_params)
-                    messages = [row[0] for row in cursor.fetchall() if row[0] and isinstance(row[0], str)]
-                    
-                    
-                    wordcloud = generate_wordcloud(messages, max_words=100)
-
-                    print(f"📝 Word cloud words: {len(wordcloud)}")
-                    
-                    # =============== REVIEWS LIST (PAGINATED) ===============
-
+                    # 7. REVIEWS LIST (PAGINATED)
                     review_query = f"""
                         SELECT 
                             username,
@@ -924,14 +886,90 @@ class SocialMediaDailyView(APIView):
                         ORDER BY created_date DESC
                         LIMIT %s OFFSET %s
                     """
-
-                    # Add pagination params
                     paginated_params = drill_params.copy()
                     paginated_params.extend([limit, offset])
-
-                    cursor.execute(review_query, paginated_params)
-                    review_rows = cursor.fetchall()
-
+                    queries['reviews'] = (review_query, paginated_params)
+                    
+                    # 8. TOTAL COUNT FOR PAGINATION
+                    count_query = f"""
+                        SELECT COUNT(*)
+                        FROM {table}
+                        {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                    """
+                    queries['count'] = (count_query, drill_params)
+                    
+                    # =============== EXECUTE QUERIES IN PARALLEL ===============
+                    results = {}
+                    with ThreadPoolExecutor(max_workers=8) as executor:
+                        future_to_name = {
+                            executor.submit(run_query, q_sql, q_params): name
+                            for name, (q_sql, q_params) in queries.items()
+                        }
+                        for future in as_completed(future_to_name):
+                            name = future_to_name[future]
+                            try:
+                                results[name] = future.result()
+                            except Exception as exc:
+                                print(f"Query {name} generated an exception: {exc}")
+                                results[name] = []
+                    
+                    # =============== PROCESS RESULTS ===============
+                    
+                    # KPI Cards
+                    kpi_row = results.get('kpi', [None])[0] if results.get('kpi') else None
+                    total_reviews = kpi_row[0] or 0 if kpi_row else 0
+                    avg_rating = float(kpi_row[1] or 0) if kpi_row and kpi_row[1] else 0
+                    avg_sentiment = float(kpi_row[2] or 0) if kpi_row and kpi_row[2] else 0
+                    
+                    total_res = results.get('total', [[1]])
+                    grand_total = total_res[0][0] or 1 if total_res and total_res[0] else 1
+                    
+                    percentage = round((total_reviews / grand_total) * 100, 2) if grand_total > 0 else 0
+                    
+                    cards = {
+                        "total_reviews": total_reviews,
+                        "avg_rating": round(avg_rating, 2),
+                        "avg_sentiment_score": round(avg_sentiment, 3),
+                        "percentage_of_total": percentage
+                    }
+                    print(f"📊 KPI Results - Filtered: {total_reviews}, Total: {grand_total}, Percentage: {percentage}%")
+                    
+                    # Daily Trend
+                    daily_trend = []
+                    if 'trend' in results:
+                        trend_rows = results['trend']
+                        daily_trend = [
+                            {"day": row[0].strftime("%Y-%m-%d") if hasattr(row[0], 'strftime') else row[0], "count": row[1]}
+                            for row in trend_rows
+                        ]
+                        print(f"📈 Daily trend rows: {len(daily_trend)}")
+                    else:
+                        print(f"📈 Skipping daily trend for {drill_key} drilldown")
+                        
+                    # Platform Distribution
+                    platform_rows = results.get('platform', [])
+                    platform_distribution = [
+                        {"platform": row[0] or "Unknown", "count": row[1]}
+                        for row in platform_rows
+                    ]
+                    print(f"📱 Platform distribution rows: {len(platform_distribution)}")
+                    
+                    # Sentiment Distribution
+                    sentiment_rows = results.get('sentiment', [])
+                    sentiment_distribution = [
+                        {"name": row[0] or "Unknown", "value": row[1]}
+                        for row in sentiment_rows
+                    ]
+                    print(f"🎯 Sentiment distribution rows: {len(sentiment_distribution)}")
+                    
+                    # Word Cloud
+                    text_rows = results.get('text', [])
+                    messages = [row[0] for row in text_rows if row[0] and isinstance(row[0], str)]
+                    wordcloud = generate_wordcloud(messages, max_words=100)
+                    print(f"📝 Word cloud words: {len(wordcloud)}")
+                    
+                    # Reviews List
+                    review_rows = results.get('reviews', [])
                     reviews = [
                         {
                             "username": row[0],
@@ -945,25 +983,13 @@ class SocialMediaDailyView(APIView):
                         }
                         for row in review_rows
                     ]
-
                     print(f"📋 Reviews returned (page {page}): {len(reviews)}")
-
-
-                    # =============== TOTAL COUNT FOR PAGINATION ===============
-
-                    count_query = f"""
-                        SELECT COUNT(*)
-                        FROM {table}
-                        {drill_where_clause + " AND created_date >= %s AND created_date < %s" if drill_where_clause else "WHERE created_date >= %s AND created_date < %s"}
-                    """
-
-                    cursor.execute(count_query, drill_params)
-                    total_reviews = cursor.fetchone()[0] or 0
-
-                    # Calculate total pages
-                    total_pages = math.ceil(total_reviews / limit) if total_reviews > 0 else 0
-
-                    print(f"📊 Total Reviews: {total_reviews}, Total Pages: {total_pages}")
+                    
+                    # Total Count for Pagination
+                    count_res = results.get('count', [])
+                    total_reviews_count = count_res[0][0] if count_res and count_res[0] else total_reviews
+                    total_pages = math.ceil(total_reviews_count / limit) if total_reviews_count > 0 else 0
+                    print(f"📊 Total Reviews: {total_reviews_count}, Total Pages: {total_pages}")
                     
                     # =============== BUILD CHARTS ===============
                     charts = []
@@ -1102,11 +1128,28 @@ class SocialMediaDailyView(APIView):
                         OFFSET %s
                     """
 
+                    # ---------------- Total Reviews Count (Current Period) ----------------
+                    count_query = f"""
+                        SELECT COUNT(*)
+                        FROM {table}
+                        {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                    """
+
+                    # ✅ FIX: Define paginated_params for reviews branch
                     paginated_params = filter_params.copy() if filter_params else []
                     paginated_params.extend([current_from_str, current_to_str, limit, offset])
                     
-                    cursor.execute(review_query, paginated_params)
-                    review_rows = cursor.fetchall()
+                    count_params = filter_params.copy() if filter_params else []
+                    count_params.extend([current_from_str, current_to_str])
+                    
+                    # Run queries in parallel
+                    with ThreadPoolExecutor(max_workers=2) as executor:
+                        future_reviews = executor.submit(run_query, review_query, paginated_params)
+                        future_count = executor.submit(run_query, count_query, count_params)
+                        
+                        review_rows = future_reviews.result()
+                        count_res = future_count.result()
+                        total_reviews = count_res[0][0] if count_res and count_res[0][0] else 0
 
                     reviews = [
                         {
@@ -1121,19 +1164,6 @@ class SocialMediaDailyView(APIView):
                         }
                         for row in review_rows
                     ]
-
-                    # ---------------- Total Reviews Count (Current Period) ----------------
-                    count_query = f"""
-                        SELECT COUNT(*)
-                        FROM {table}
-                        {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
-                    """
-
-                    count_params = filter_params.copy() if filter_params else []
-                    count_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(count_query, count_params)
-                    total_reviews = cursor.fetchone()[0] or 0
                     
                     # Calculate total pages
                     total_pages = math.ceil(total_reviews / limit) if total_reviews > 0 else 0
@@ -1195,69 +1225,218 @@ class SocialMediaDailyView(APIView):
                                 }
                             }
 
-                    # Build optimized KPI query with conditional aggregation
+                    # =============== PREPARE ALL DASHBOARD QUERIES ===============
+                    queries = {}
+                    
+                    # 1. KPI Calculation
                     kpi_query = f"""
                     SELECT 
-                        -- CURRENT PERIOD
                         COUNT(CASE WHEN created_date >= %s AND created_date < %s THEN 1 END) AS current_total,
                         SUM(CASE WHEN created_date >= %s AND created_date < %s AND LOWER(sentiment) = 'positive' THEN 1 ELSE 0 END) AS current_positive,
                         SUM(CASE WHEN created_date >= %s AND created_date < %s AND LOWER(sentiment) = 'neutral' THEN 1 ELSE 0 END) AS current_neutral,
                         SUM(CASE WHEN created_date >= %s AND created_date < %s AND LOWER(sentiment) = 'negative' THEN 1 ELSE 0 END) AS current_negative,
                         AVG(CASE WHEN created_date >= %s AND created_date < %s THEN user_rating END) AS current_avg,
-                        
-                        -- PREVIOUS PERIOD
                         COUNT(CASE WHEN created_date >= %s AND created_date < %s THEN 1 END) AS prev_total,
                         SUM(CASE WHEN created_date >= %s AND created_date < %s AND LOWER(sentiment) = 'positive' THEN 1 ELSE 0 END) AS prev_positive,
                         SUM(CASE WHEN created_date >= %s AND created_date < %s AND LOWER(sentiment) = 'neutral' THEN 1 ELSE 0 END) AS prev_neutral,
                         SUM(CASE WHEN created_date >= %s AND created_date < %s AND LOWER(sentiment) = 'negative' THEN 1 ELSE 0 END) AS prev_negative,
                         AVG(CASE WHEN created_date >= %s AND created_date < %s THEN user_rating END) AS prev_avg
                     FROM {table}
-                    {where_clause}  -- This only has non-date filters!
+                    {where_clause}
                     """
-
-                    # Prepare parameters in correct order
                     kpi_params = [
-                        current_from_str, current_to_str,  # current_total
-                        current_from_str, current_to_str,  # current_positive
-                        current_from_str, current_to_str,  # current_neutral
-                        current_from_str, current_to_str,  # current_negative
-                        current_from_str, current_to_str,  # current_avg
-                        prev_from_str, prev_to_str,        # prev_total
-                        prev_from_str, prev_to_str,        # prev_positive
-                        prev_from_str, prev_to_str,        # prev_neutral
-                        prev_from_str, prev_to_str,        # prev_negative
-                        prev_from_str, prev_to_str,        # prev_avg
+                        current_from_str, current_to_str, current_from_str, current_to_str,
+                        current_from_str, current_to_str, current_from_str, current_to_str,
+                        current_from_str, current_to_str, prev_from_str, prev_to_str,
+                        prev_from_str, prev_to_str, prev_from_str, prev_to_str,
+                        prev_from_str, prev_to_str, prev_from_str, prev_to_str,
                     ]
-                    
-                    # Add ONLY non-date filter params
                     kpi_params.extend(filter_params)
+                    queries['kpi'] = (kpi_query, kpi_params)
+                    
+                    # Dashboard shared params for mostly all queries
+                    dashboard_params = filter_params.copy() if filter_params else []
+                    dashboard_params.extend([current_from_str, current_to_str])
 
-                    cursor.execute(kpi_query, kpi_params)
-                    kpi_row = cursor.fetchone()
+                    # 2. Daily Sentiment
+                    sentiment_query = f"""
+                        SELECT DATE(created_date) AS day,
+                            SUM(CASE WHEN LOWER(sentiment) = 'positive' THEN 1 ELSE 0 END) AS positive,
+                            SUM(CASE WHEN LOWER(sentiment) = 'neutral' THEN 1 ELSE 0 END) AS neutral,
+                            SUM(CASE WHEN LOWER(sentiment) = 'negative' THEN 1 ELSE 0 END) AS negative
+                        FROM {table}
+                        {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                        GROUP BY 1 ORDER BY 1
+                    """
+                    queries['sentiment'] = (sentiment_query, dashboard_params)
+                    
+                    # 3. Rating Distribution
+                    rating_where = (
+                        where_clause + f" AND user_rating IS NOT NULL AND created_date >= %s AND created_date < %s"
+                        if where_clause else f"WHERE user_rating IS NOT NULL AND created_date >= %s AND created_date < %s"
+                    )
+                    rating_query = f"""
+                        SELECT user_rating, COUNT(*) AS count
+                        FROM {table} {rating_where} GROUP BY user_rating ORDER BY user_rating
+                    """
+                    queries['rating'] = (rating_query, dashboard_params)
+                    
+                    # 4. Sentiment Score Trend
+                    score_where = (
+                        where_clause + f" AND sentiment_score IS NOT NULL AND created_date >= %s AND created_date < %s"
+                        if where_clause else f"WHERE sentiment_score IS NOT NULL AND created_date >= %s AND created_date < %s"
+                    )
+                    score_query = f"""
+                        SELECT DATE(created_date) AS day, AVG(sentiment_score) AS score
+                        FROM {table} {score_where} GROUP BY 1 ORDER BY 1
+                    """
+                    queries['score'] = (score_query, dashboard_params)
+                    
+                    # 5. Text & Hashtags
+                    all_text_query = f"""
+                        SELECT message FROM {table}
+                        {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                    """
+                    full_params = filter_params.copy()
+                    full_params.extend([current_from_str, current_to_str])
 
-                    if kpi_row:
-                        (
-                            current_total,
-                            current_positive,
-                            current_neutral,
-                            current_negative,
-                            current_avg,
-                            prev_total,
-                            prev_positive,
-                            prev_neutral,
-                            prev_negative,
-                            prev_avg
-                        ) = kpi_row
-                        
-                        # Build cards with proper format using helper function
-                        cards = {
-                            "total_reviews_card": build_card(current_total or 0, prev_total or 0),
-                            "positive_card": build_card(current_positive or 0, prev_positive or 0),
-                            "neutral_card": build_card(current_neutral or 0, prev_neutral or 0),
-                            "negative_card": build_card(current_negative or 0, prev_negative or 0),
-                            "avg_rating_card": build_card(float(current_avg or 0), float(prev_avg or 0), is_rating=True)
+                    queries['text'] = (all_text_query, full_params)
+                    
+                    # 6. Language Distribution
+                    language_query = f"""
+                        SELECT LOWER(TRIM(language)) as language, COUNT(*) as count
+                        FROM {table}
+                        {where_clause + " AND language IS NOT NULL AND language != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE language IS NOT NULL AND language != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY LOWER(TRIM(language)) ORDER BY count DESC LIMIT 10
+                    """
+                    queries['language'] = (language_query, dashboard_params)
+                    
+                    # 7. Gender Distribution
+                    gender_query = f"""
+                        SELECT LOWER(TRIM(gender)) as gender, COUNT(*) as count
+                        FROM {table}
+                        {where_clause + " AND gender IS NOT NULL AND gender != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE gender IS NOT NULL AND gender != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY LOWER(TRIM(gender))
+                    """
+                    queries['gender'] = (gender_query, dashboard_params)
+                    
+                    # 8. Top Advocates
+                    advocates_query = f"""
+                        SELECT username, COUNT(*) as mentions FROM {table}
+                        {where_clause + " AND LOWER(sentiment) = 'positive' AND username IS NOT NULL AND username != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE LOWER(sentiment) = 'positive' AND username IS NOT NULL AND username != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY username ORDER BY mentions DESC LIMIT 10
+                    """
+                    queries['advocates'] = (advocates_query, dashboard_params)
+                    
+                    # 9. Top Detractors
+                    detractors_query = f"""
+                        SELECT username, COUNT(*) as mentions FROM {table}
+                        {where_clause + " AND LOWER(sentiment) = 'negative' AND username IS NOT NULL AND username != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE LOWER(sentiment) = 'negative' AND username IS NOT NULL AND username != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY username ORDER BY mentions DESC LIMIT 10
+                    """
+                    queries['detractors'] = (detractors_query, dashboard_params)
+                    
+                    # 10. Activity By Hour
+                    activity_hour_query = f"""
+                        SELECT EXTRACT(HOUR FROM created_date) as hour, COUNT(*) as count FROM {table}
+                        {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                        GROUP BY hour ORDER BY hour
+                    """
+                    queries['activity_hour'] = (activity_hour_query, dashboard_params)
+                    
+                    # 11. Activity By Day
+                    activity_day_query = f"""
+                        SELECT EXTRACT(DOW FROM created_date) as day, COUNT(*) as count FROM {table}
+                        {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
+                        GROUP BY day ORDER BY day
+                    """
+                    queries['activity_day'] = (activity_day_query, dashboard_params)
+                    
+                    # 12. Primary Mentions
+                    primary_mentions_query = f"""
+                        SELECT primary_mention, COUNT(*) as count FROM {table}
+                        {where_clause + " AND primary_mention IS NOT NULL AND primary_mention != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE primary_mention IS NOT NULL AND primary_mention != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY primary_mention ORDER BY count DESC LIMIT 20
+                    """
+                    queries['primary'] = (primary_mentions_query, dashboard_params)
+                    
+                    # 13. Issue Type
+                    issue_type_query = f"""
+                        SELECT issue_type, COUNT(*) as count FROM {table}
+                        {where_clause + " AND issue_type IS NOT NULL AND issue_type != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE issue_type IS NOT NULL AND issue_type != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY issue_type ORDER BY count DESC
+                    """
+                    queries['issue'] = (issue_type_query, dashboard_params)
+                    
+                    # 14. Journey Sentiment
+                    journey_query = f"""
+                        SELECT journey_stage,
+                            SUM(CASE WHEN LOWER(sentiment) = 'positive' THEN 1 ELSE 0 END) as positive,
+                            SUM(CASE WHEN LOWER(sentiment) = 'neutral' THEN 1 ELSE 0 END) as neutral,
+                            SUM(CASE WHEN LOWER(sentiment) = 'negative' THEN 1 ELSE 0 END) as negative
+                        FROM {table}
+                        {where_clause + " AND journey_stage IS NOT NULL AND journey_stage != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE journey_stage IS NOT NULL AND journey_stage != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY journey_stage ORDER BY journey_stage
+                    """
+                    queries['journey'] = (journey_query, dashboard_params)
+                    
+                    # 15. Resolution Status
+                    resolution_query = f"""
+                        SELECT resolution_status, COUNT(*) as count FROM {table}
+                        {where_clause + " AND resolution_status IS NOT NULL AND resolution_status != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE resolution_status IS NOT NULL AND resolution_status != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY resolution_status ORDER BY count DESC
+                    """
+                    queries['resolution'] = (resolution_query, dashboard_params)
+                    
+                    # 16. Value For Money
+                    value_query = f"""
+                        SELECT value_for_money, COUNT(*) as count FROM {table}
+                        {where_clause + " AND value_for_money IS NOT NULL AND value_for_money != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE value_for_money IS NOT NULL AND value_for_money != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY value_for_money ORDER BY count DESC
+                    """
+                    queries['value'] = (value_query, dashboard_params)
+                    
+                    # 17. Churn Risk
+                    churn_query = f"""
+                        SELECT churn_risk, COUNT(*) as count FROM {table}
+                        {where_clause + " AND churn_risk IS NOT NULL AND churn_risk != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE churn_risk IS NOT NULL AND churn_risk != '' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY churn_risk
+                    """
+                    queries['churn'] = (churn_query, dashboard_params)
+
+                    # =============== EXECUTE ALL QUERIES IN PARALLEL ===============
+                    results = {}
+                    with ThreadPoolExecutor(max_workers=17) as executor:
+                        future_to_name = {
+                            executor.submit(run_query, q_sql, q_params): name
+                            for name, (q_sql, q_params) in queries.items()
                         }
+                        for future in as_completed(future_to_name):
+                            name = future_to_name[future]
+                            try:
+                                results[name] = future.result()
+                            except Exception as exc:
+                                print(f"Query {name} generated an exception: {exc}")
+                                results[name] = []
+
+                    # =============== PROCESS RESULTS ===============
+                    
+                    # KPI Cards Processing
+                    kpi_rows = results.get('kpi', [])
+                    if kpi_rows and kpi_rows[0]:
+                        kpi_row = kpi_rows[0]
+                        (current_total, current_positive, current_neutral, current_negative, current_avg,
+                         prev_total, prev_positive, prev_neutral, prev_negative, prev_avg) = [
+                             val if val is not None else 0 for val in kpi_row
+                         ]
                         
+                        cards = {
+                            "total_reviews_card": build_card(current_total, prev_total),
+                            "positive_card": build_card(current_positive, prev_positive),
+                            "neutral_card": build_card(current_neutral, prev_neutral),
+                            "negative_card": build_card(current_negative, prev_negative),
+                            "avg_rating_card": build_card(float(current_avg), float(prev_avg), is_rating=True)
+                        }
                     else:
                         cards = {
                             "total_reviews_card": build_card(0, 0),
@@ -1267,400 +1446,47 @@ class SocialMediaDailyView(APIView):
                             "avg_rating_card": build_card(0, 0, is_rating=True)
                         }
 
-                    # ---------------- Daily Sentiment ----------------
-                    sentiment_query = f"""
-                        SELECT 
-                            DATE(created_date) AS day,
-                            SUM(CASE WHEN LOWER(sentiment) = 'positive' THEN 1 ELSE 0 END) AS positive,
-                            SUM(CASE WHEN LOWER(sentiment) = 'neutral' THEN 1 ELSE 0 END) AS neutral,
-                            SUM(CASE WHEN LOWER(sentiment) = 'negative' THEN 1 ELSE 0 END) AS negative
-                        FROM {table}
-                        {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
-                        GROUP BY 1
-                        ORDER BY 1
-                    """
-
-                    sentiment_params = filter_params.copy() if filter_params else []
-                    sentiment_params.extend([current_from_str, current_to_str])
+                    # Other Result processing
+                    daily_sentiment = [{"day": row[0], "positive": row[1], "neutral": row[2], "negative": row[3]} for row in results.get('sentiment', [])]
+                    rating_distribution = [{"rating": row[0], "count": row[1]} for row in results.get('rating', [])]
+                    sentiment_score_trend = [{"day": row[0], "score": float(row[1]) if row[1] else 0} for row in results.get('score', [])]
                     
-                    cursor.execute(sentiment_query, sentiment_params)
-                    sentiment_rows = cursor.fetchall()
-
-                    daily_sentiment = [
-                        {
-                            "day": row[0],
-                            "positive": row[1],
-                            "neutral": row[2],
-                            "negative": row[3],
-                        }
-                        for row in sentiment_rows
-                    ]
-
-                    # ---------------- Rating Distribution ----------------
-                    rating_where = (
-                        where_clause + f" AND user_rating IS NOT NULL AND created_date >= %s AND created_date < %s"
-                        if where_clause
-                        else f"WHERE user_rating IS NOT NULL AND created_date >= %s AND created_date < %s"
-                    )
-
-                    rating_query = f"""
-                        SELECT 
-                            user_rating,
-                            COUNT(*) AS count
-                        FROM {table}
-                        {rating_where}
-                        GROUP BY user_rating
-                        ORDER BY user_rating
-                    """
-
-                    rating_params = filter_params.copy() if filter_params else []
-                    rating_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(rating_query, rating_params)
-                    rating_rows = cursor.fetchall()
-
-                    rating_distribution = [
-                        {
-                            "rating": row[0],
-                            "count": row[1]
-                        }
-                        for row in rating_rows
-                    ]
-
-                    # ---------------- Sentiment Score Trend ----------------
-                    if where_clause:
-                        score_where = where_clause + f" AND sentiment_score IS NOT NULL AND created_date >= %s AND created_date < %s"
-                    else:
-                        score_where = f"WHERE sentiment_score IS NOT NULL AND created_date >= %s AND created_date < %s"
-
-                    score_query = f"""
-                        SELECT
-                            DATE(created_date) AS day,
-                            AVG(sentiment_score) AS score
-                        FROM {table}
-                        {score_where}
-                        GROUP BY 1
-                        ORDER BY 1
-                    """
-
-                    score_params = filter_params.copy() if filter_params else []
-                    score_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(score_query, score_params)
-                    score_rows = cursor.fetchall()
-
-                    sentiment_score_trend = [
-                        {
-                            "day": row[0],
-                            "score": float(row[1]) if row[1] else 0
-                        }
-                        for row in score_rows
-                    ]
-
-                   # ---------------- Word Cloud & Hashtags ----------------
-                  
                     hashtag_counter = Counter()
-
                     try:
-                        all_text_query = f"""
-                            SELECT message
-                            FROM {table}
-                            {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
-                        """
-
-                        text_params = filter_params.copy() if filter_params else []
-                        text_params.extend([current_from_str, current_to_str])
-                        
-                        cursor.execute(all_text_query, text_params)
-
-                        # Clean messages
-                        messages = [row[0] for row in cursor.fetchall() if row[0] and isinstance(row[0], str)]
-
-                        # -------- HASHTAGS --------
-                        
+                        messages = [row[0] for row in results.get('text', []) if row[0] and isinstance(row[0], str)]
                         for msg in messages:
                             hashtags = re.findall(r'#\w+', msg.lower())
-                            hashtag_counter.update(hashtags)
 
-                        # -------- WORD CLOUD (REFACTORED) --------
+                            cleaned_hashtags = []
+
+                            for tag in hashtags:
+                                # Remove trailing punctuation
+                                cleaned = re.sub(r'[^\w#]', '', tag)
+                                if cleaned.startswith('#'):
+                                    cleaned_hashtags.append(cleaned)
+
+                            hashtag_counter.update(cleaned_hashtags)
                         top_words = generate_wordcloud(messages, max_words=200)
-
                     except Exception as e:
                         print(f"WordCloud processing error: {str(e)}")
                         top_words = {}
-                        hashtag_counter = Counter()
-
-                    # Top hashtags
                     top_hashtags = dict(hashtag_counter.most_common(10)) if hashtag_counter else {}
 
-                    # Top 10 hashtags
-                    if hashtag_counter:
-                        top_hashtags = dict(hashtag_counter.most_common(10))
-                    else:
-                        top_hashtags = {}
+                    language_distribution = [{"name": row[0].title() if row[0] else "Unknown", "value": row[1]} for row in results.get('language', [])]
+                    gender_distribution = [{"name": row[0].title() if row[0] else "Unknown", "value": row[1]} for row in results.get('gender', [])]
+                    top_advocates = [{"username": row[0], "mentions": row[1]} for row in results.get('advocates', [])]
+                    top_detractors = [{"username": row[0], "mentions": row[1]} for row in results.get('detractors', [])]
 
-                    # =============== AUDIENCE ANALYTICS QUERIES ===============
-
-                    # 1️⃣ Language Distribution (Top 10)
-                    language_query = f"""
-                        SELECT LOWER(TRIM(language)) as language, COUNT(*) as count
-                        FROM {table}
-                        {where_clause + " AND language IS NOT NULL AND language != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE language IS NOT NULL AND language != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY LOWER(TRIM(language))
-                        ORDER BY count DESC
-                        LIMIT 10
-                    """
-                    
-                    language_params = filter_params.copy() if filter_params else []
-                    language_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(language_query, language_params)
-                    language_rows = cursor.fetchall()
-
-                    language_distribution = [
-                        {"name": row[0].title() if row[0] else "Unknown", "value": row[1]}
-                        for row in language_rows
-                    ]
-
-                    # 2️⃣ Gender Distribution
-                    gender_query = f"""
-                        SELECT LOWER(TRIM(gender)) as gender, COUNT(*) as count
-                        FROM {table}
-                        {where_clause + " AND gender IS NOT NULL AND gender != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE gender IS NOT NULL AND gender != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY LOWER(TRIM(gender))
-                    """
-                    
-                    gender_params = filter_params.copy() if filter_params else []
-                    gender_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(gender_query, gender_params)
-                    gender_rows = cursor.fetchall()
-
-                    gender_distribution = [
-                        {"name": row[0].title() if row[0] else "Unknown", "value": row[1]}
-                        for row in gender_rows
-                    ]
-
-                    # 3️⃣ Top Advocates (Positive users)
-                    advocates_query = f"""
-                        SELECT username, COUNT(*) as mentions
-                        FROM {table}
-                        {where_clause + " AND LOWER(sentiment) = 'positive' AND username IS NOT NULL AND username != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE LOWER(sentiment) = 'positive' AND username IS NOT NULL AND username != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY username
-                        ORDER BY mentions DESC
-                        LIMIT 10
-                    """
-                    
-                    advocate_params = filter_params.copy() if filter_params else []
-                    advocate_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(advocates_query, advocate_params)
-                    advocate_rows = cursor.fetchall()
-
-                    top_advocates = [
-                        {"username": row[0], "mentions": row[1]}
-                        for row in advocate_rows
-                    ]
-
-                    # 4️⃣ Top Detractors (Negative users)
-                    detractors_query = f"""
-                        SELECT username, COUNT(*) as mentions
-                        FROM {table}
-                        {where_clause + " AND LOWER(sentiment) = 'negative' AND username IS NOT NULL AND username != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE LOWER(sentiment) = 'negative' AND username IS NOT NULL AND username != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY username
-                        ORDER BY mentions DESC
-                        LIMIT 10
-                    """
-                    
-                    detractor_params = filter_params.copy() if filter_params else []
-                    detractor_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(detractors_query, detractor_params)
-                    detractor_rows = cursor.fetchall()
-
-                    top_detractors = [
-                        {"username": row[0], "mentions": row[1]}
-                        for row in detractor_rows
-                    ]
-
-                    # 5️⃣ Activity by Hour
-                    activity_hour_query = f"""
-                        SELECT EXTRACT(HOUR FROM created_date) as hour, COUNT(*) as count
-                        FROM {table}
-                        {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
-                        GROUP BY hour
-                        ORDER BY hour
-                    """
-                    
-                    hour_params = filter_params.copy() if filter_params else []
-                    hour_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(activity_hour_query, hour_params)
-                    hour_rows = cursor.fetchall()
-
-                    activity_by_hour = [
-                        {
-                            "hour": f"{int(int(row[0]) % 12 or 12)} {'AM' if int(row[0]) < 12 else 'PM'}",
-                            "count": row[1]
-                        }
-                        for row in hour_rows
-                    ]
-
-                    # 6️⃣ Activity by Day of Week
-                    activity_day_query = f"""
-                        SELECT EXTRACT(DOW FROM created_date) as day, COUNT(*) as count
-                        FROM {table}
-                        {where_clause + " AND created_date >= %s AND created_date < %s" if where_clause else "WHERE created_date >= %s AND created_date < %s"}
-                        GROUP BY day
-                        ORDER BY day
-                    """
-                    
-                    day_params = filter_params.copy() if filter_params else []
-                    day_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(activity_day_query, day_params)
-                    day_rows = cursor.fetchall()
-
+                    activity_by_hour = [{"hour": f"{int(int(row[0]) % 12 or 12)} {'AM' if int(row[0]) < 12 else 'PM'}", "count": row[1]} for row in results.get('activity_hour', [])]
                     days_map = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+                    activity_by_day = [{"day": days_map[int(row[0])], "count": row[1]} for row in results.get('activity_day', [])]
 
-                    activity_by_day = [
-                        {
-                            "day": days_map[int(row[0])],
-                            "count": row[1]
-                        }
-                        for row in day_rows
-                    ]
-
-                    # =============== TOPIC & METRICS QUERIES ===============
-
-                    # 1️⃣ Tree Map → Primary Mentions
-                    primary_mentions_query = f"""
-                        SELECT primary_mention, COUNT(*) as count
-                        FROM {table}
-                        {where_clause + " AND primary_mention IS NOT NULL AND primary_mention != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE primary_mention IS NOT NULL AND primary_mention != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY primary_mention
-                        ORDER BY count DESC
-                        LIMIT 20
-                    """
-
-                    primary_params = filter_params.copy() if filter_params else []
-                    primary_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(primary_mentions_query, primary_params)
-                    primary_rows = cursor.fetchall()
-
-                    primary_mentions = [
-                        {"name": row[0], "value": row[1]}
-                        for row in primary_rows
-                    ]
-
-                    # 2️⃣ Issue Type (Horizontal Bar)
-                    issue_type_query = f"""
-                        SELECT issue_type, COUNT(*) as count
-                        FROM {table}
-                        {where_clause + " AND issue_type IS NOT NULL AND issue_type != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE issue_type IS NOT NULL AND issue_type != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY issue_type
-                        ORDER BY count DESC
-                    """
-
-                    issue_params = filter_params.copy() if filter_params else []
-                    issue_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(issue_type_query, issue_params)
-                    issue_rows = cursor.fetchall()
-
-                    issue_type_distribution = [
-                        {"name": row[0], "value": row[1]}
-                        for row in issue_rows
-                    ]
-
-                    # 3️⃣ Journey Stage vs Sentiment (STACKED BAR)
-                    journey_query = f"""
-                        SELECT 
-                            journey_stage,
-                            SUM(CASE WHEN LOWER(sentiment) = 'positive' THEN 1 ELSE 0 END) as positive,
-                            SUM(CASE WHEN LOWER(sentiment) = 'neutral' THEN 1 ELSE 0 END) as neutral,
-                            SUM(CASE WHEN LOWER(sentiment) = 'negative' THEN 1 ELSE 0 END) as negative
-                        FROM {table}
-                        {where_clause + " AND journey_stage IS NOT NULL AND journey_stage != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE journey_stage IS NOT NULL AND journey_stage != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY journey_stage
-                        ORDER BY journey_stage
-                    """
-
-                    journey_params = filter_params.copy() if filter_params else []
-                    journey_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(journey_query, journey_params)
-                    journey_rows = cursor.fetchall()
-
-                    journey_sentiment = [
-                        {
-                            "stage": row[0],
-                            "positive": row[1],
-                            "neutral": row[2],
-                            "negative": row[3],
-                        }
-                        for row in journey_rows
-                    ]
-
-                    # 4️⃣ Resolution Status
-                    resolution_query = f"""
-                        SELECT resolution_status, COUNT(*) as count
-                        FROM {table}
-                        {where_clause + " AND resolution_status IS NOT NULL AND resolution_status != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE resolution_status IS NOT NULL AND resolution_status != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY resolution_status
-                        ORDER BY count DESC
-                    """
-
-                    resolution_params = filter_params.copy() if filter_params else []
-                    resolution_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(resolution_query, resolution_params)
-                    resolution_rows = cursor.fetchall()
-
-                    resolution_status = [
-                        {"name": row[0], "value": row[1]}
-                        for row in resolution_rows
-                    ]
-
-                    # 5️⃣ Value for Money
-                    value_query = f"""
-                        SELECT value_for_money, COUNT(*) as count
-                        FROM {table}
-                        {where_clause + " AND value_for_money IS NOT NULL AND value_for_money != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE value_for_money IS NOT NULL AND value_for_money != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY value_for_money
-                        ORDER BY count DESC
-                    """
-
-                    value_params = filter_params.copy() if filter_params else []
-                    value_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(value_query, value_params)
-                    value_rows = cursor.fetchall()
-
-                    value_for_money = [
-                        {"name": row[0], "value": row[1]}
-                        for row in value_rows
-                    ]
-
-                    # 6️⃣ Churn Risk (Pie Chart)
-                    churn_query = f"""
-                        SELECT churn_risk, COUNT(*) as count
-                        FROM {table}
-                        {where_clause + " AND churn_risk IS NOT NULL AND churn_risk != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE churn_risk IS NOT NULL AND churn_risk != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY churn_risk
-                    """
-
-                    churn_params = filter_params.copy() if filter_params else []
-                    churn_params.extend([current_from_str, current_to_str])
-                    
-                    cursor.execute(churn_query, churn_params)
-                    churn_rows = cursor.fetchall()
-
-                    churn_risk = [
-                        {"name": row[0], "value": row[1]}
-                        for row in churn_rows
-                    ]
+                    primary_mentions = [{"name": row[0], "value": row[1]} for row in results.get('primary', [])]
+                    issue_type_distribution = [{"name": row[0], "value": row[1]} for row in results.get('issue', [])]
+                    journey_sentiment = [{"stage": row[0], "positive": row[1], "neutral": row[2], "negative": row[3]} for row in results.get('journey', [])]
+                    resolution_status = [{"name": row[0], "value": row[1]} for row in results.get('resolution', [])]
+                    value_for_money = [{"name": row[0], "value": row[1]} for row in results.get('value', [])]
+                    churn_risk = [{"name": row[0], "value": row[1]} for row in results.get('churn', [])]
 
                     # =============== BUILD CHARTS ===============
                     charts = []
