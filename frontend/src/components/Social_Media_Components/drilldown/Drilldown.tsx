@@ -26,7 +26,7 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
   /* ── Delayed unmount for exit animation ── */
   const [visible, setVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  
+
   /* ── Pagination state ── */
   const [currentPage, setCurrentPage] = useState(1);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -82,12 +82,12 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
   /* ── Page change handler with proper types ── */
   const handlePageChange = useCallback((page: number) => {
     const totalPages = drill.data?.pagination?.total_pages || 1;
-    
+
     if (page < 1 || page > totalPages) return;
-    
+
     setCurrentPage(page);
     setReviewsLoading(true);
-    
+
     // ✅ Properly typed fetch call
     if (drill.fetch) {
       const params: DrillFetchParams = {
@@ -135,10 +135,14 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
       year: "numeric",
     });
 
+  const formatText = (text: string): string =>
+    String(text)
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/^./, (c) => c.toUpperCase());
+
   const contextLabel = drill.context
-    ? `${String(drill.context.key).replace(/_/g, " ")} → ${String(
-        drill.context.value
-      )}`
+    ? `${formatText(drill.context.key)} → ${formatText(drill.context.value)}`
     : "";
 
   /* ================= WORD CLOUD HANDLERS ================= */
@@ -226,7 +230,7 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
   const renderPageNumbers = (): React.ReactNode[] => {
     const totalPages = drill.data?.pagination?.total_pages || 1;
     const current = currentPage;
-    
+
     // Show limited page numbers with ellipsis
     const delta = 2;
     const range: number[] = [];
@@ -259,7 +263,7 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
           </span>
         );
       }
-      
+
       const pageNum = page as number;
       return (
         <button
@@ -277,15 +281,13 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
 
   return (
     <div
-      className={`drilldown-overlay ${
-        isClosing ? "drilldown-overlay--closing" : ""
-      }`}
+      className={`drilldown-overlay ${isClosing ? "drilldown-overlay--closing" : ""
+        }`}
       onClick={handleClose}
     >
       <div
-        className={`drilldown-sidebar ${
-          isClosing ? "drilldown-sidebar--closing" : ""
-        }`}
+        className={`drilldown-sidebar ${isClosing ? "drilldown-sidebar--closing" : ""
+          }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* ================= HEADER ================= */}
@@ -326,234 +328,233 @@ const Drilldown: React.FC<DrilldownProps> = ({ drill, onClose }) => {
           {/* ================= DATA ================= */}
           {drill.data && (
             <>
-            <>
-              {/* ================= KPI CARDS ================= */}
-              {drill.data.cards && (
-                <div className="drilldown-cards drill-section">
-                  <div className="drill-kpi-grid">
-                    {[
-                      {
-                        title: "Total Reviews",
-                        value: drill.data.cards.total_reviews?.toLocaleString() || "0",
-                      },
-                      {
-                        title: "Avg Rating",
-                        value: `${(drill.data.cards.avg_rating || 0).toFixed(1)} /5`,
-                      },
-                      {
-                        title: "Avg Sentiment",
-                        value: (drill.data.cards.avg_sentiment_score || 0).toFixed(2),
-                      },
-                      {
-                        title: "% of Total",
-                        value: `${drill.data.cards.percentage_of_total || 0}%`,
-                      },
-                    ].map((kpi, idx) => (
-                      <div key={idx} className="drill-kpi-card">
-                        <div className="drill-kpi-label">{kpi.title}</div>
-                        <div className="drill-kpi-value">{kpi.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* ================= CHARTS ================= */}
-              {drill.data.charts?.map((chart: any, idx: number) => (
-                <div key={idx} className="drilldown-chart drill-section">
-                  <h4 className="drilldown-chart-title">
-                    <i
-                      className={`bi ${
-                        chart.icon || "bi-bar-chart-fill"
-                      } drilldown-chart-icon`}
-                    ></i>
-                    {chart.title}
-                  </h4>
-
-                  <div className="p-4">
-                    {chartsReady ? (
-                      <ChartRenderer
-                        chart={chart}
-                        selectedValue={drill.context?.value}
-                        drillKey={chart?.config?.drillKey}
-                        onDrillDown={(event) => {
-                          console.log("Nested drill:", event);
-                        }}
-                      />
-                    ) : (
-                      <div className="drill-chart-skeleton" style={{ height: chart.config?.height || 300 }}>
-                        <div className="skel-bar skel-chart-bar" style={{ width: '60%', height: 8 }}></div>
-                        <div className="skel-bar skel-chart-bar" style={{ width: '80%', height: 8 }}></div>
-                        <div className="skel-bar skel-chart-bar" style={{ width: '45%', height: 8 }}></div>
-                        <div className="skel-bar skel-chart-bar" style={{ width: '70%', height: 8 }}></div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              {/* ================= WORD CLOUD ================= */}
-              {wordCloudData.length > 0 && (
-                <div className="drilldown-chart drill-section">
-                  <h4 className="drilldown-chart-title">
-                    <i className="bi bi-cloud drilldown-chart-icon"></i>
-                    Key Topics
-                  </h4>
-
-                  <div className="p-3">
-                    <WordCloudVisx
-                      data={wordCloudData}
-                      onDrillDown={(event) => {
-                        console.log("Word drill:", event);
-                      }}
-                      minFontSize={wordCloudConfig.minFontSize}
-                      maxFontSize={wordCloudConfig.maxFontSize}
-                      padding={wordCloudConfig.padding}
-                      colors={wordCloudConfig.colors}
-                      selectedValue={drill.context?.value}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* ================= REVIEWS ================= */}
-              {drill.data.reviews && drill.data.reviews.length > 0 && (
-                <>
-                  <div ref={reviewsRef} className="drilldown-reviews drill-section">
-                    <div className="drilldown-reviews-header">
-                      <i className="bi bi-chat-square-text drilldown-chart-icon"></i>
-                      Reviews
-                      <span className="review-count-badge">
-                        {drill.data.pagination?.total_reviews?.toLocaleString() || drill.data.reviews.length}
-                      </span>
+              <>
+                {/* ================= KPI CARDS ================= */}
+                {drill.data.cards && (
+                  <div className="drilldown-cards drill-section">
+                    <div className="drill-kpi-grid">
+                      {[
+                        {
+                          title: "Total Reviews",
+                          value: drill.data.cards.total_reviews?.toLocaleString() || "0",
+                        },
+                        {
+                          title: "Avg Rating",
+                          value: `${(drill.data.cards.avg_rating || 0).toFixed(1)} /5`,
+                        },
+                        {
+                          title: "Avg Sentiment",
+                          value: (drill.data.cards.avg_sentiment_score || 0).toFixed(2),
+                        },
+                        {
+                          title: "% of Total",
+                          value: `${drill.data.cards.percentage_of_total || 0}%`,
+                        },
+                      ].map((kpi, idx) => (
+                        <div key={idx} className="drill-kpi-card">
+                          <div className="drill-kpi-label">{kpi.title}</div>
+                          <div className="drill-kpi-value">{kpi.value}</div>
+                        </div>
+                      ))}
                     </div>
+                  </div>
+                )}
 
-                    {/* ✅ Skeleton loader during pagination */}
-                    {reviewsLoading ? (
-                      renderReviewSkeletons(5)
-                    ) : (
-                      drill.data.reviews.map((review: DrillReview, index: number) => {
-                        const sentimentClass =
-                          review.sentiment?.toLowerCase() || "neutral";
+                {/* ================= CHARTS ================= */}
+                {drill.data.charts?.map((chart: any, idx: number) => (
+                  <div key={idx} className="drilldown-chart drill-section">
+                    <h4 className="drilldown-chart-title">
+                      <i
+                        className={`bi ${chart.icon || "bi-bar-chart-fill"
+                          } drilldown-chart-icon`}
+                      ></i>
+                      {chart.title}
+                    </h4>
 
-                        return (
-                          <div key={index} className="drill-review-item">
-                            {/* Accent bar */}
-                            <div
-                              className={`drill-review-accent ${sentimentClass}`}
-                            ></div>
+                    <div className="p-4">
+                      {chartsReady ? (
+                        <ChartRenderer
+                          chart={chart}
+                          selectedValue={drill.context?.value}
+                          drillKey={chart?.config?.drillKey}
+                          onDrillDown={(event) => {
+                            console.log("Nested drill:", event);
+                          }}
+                        />
+                      ) : (
+                        <div className="drill-chart-skeleton" style={{ height: chart.config?.height || 300 }}>
+                          <div className="skel-bar skel-chart-bar" style={{ width: '60%', height: 8 }}></div>
+                          <div className="skel-bar skel-chart-bar" style={{ width: '80%', height: 8 }}></div>
+                          <div className="skel-bar skel-chart-bar" style={{ width: '45%', height: 8 }}></div>
+                          <div className="skel-bar skel-chart-bar" style={{ width: '70%', height: 8 }}></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
 
-                            <div className="d-flex">
-                              {/* Emoji */}
-                              <div className="drill-review-emoji">
-                                {sentimentEmoji(review.sentiment)}
-                              </div>
+                {/* ================= WORD CLOUD ================= */}
+                {wordCloudData.length > 0 && (
+                  <div className="drilldown-chart drill-section">
+                    <h4 className="drilldown-chart-title">
+                      <i className="bi bi-cloud drilldown-chart-icon"></i>
+                      Key Topics
+                    </h4>
 
-                              {/* Content */}
-                              <div className="flex-grow-1">
-                                {/* Top row */}
-                                <div className="drill-review-top">
-                                  <div className="drill-review-user">
-                                    <strong>{review.username}</strong>
-                                    <span className="drill-review-platform">
-                                      {review.platform}
-                                    </span>
-                                  </div>
+                    <div className="p-3">
+                      <WordCloudVisx
+                        data={wordCloudData}
+                        onDrillDown={(event) => {
+                          console.log("Word drill:", event);
+                        }}
+                        minFontSize={wordCloudConfig.minFontSize}
+                        maxFontSize={wordCloudConfig.maxFontSize}
+                        padding={wordCloudConfig.padding}
+                        colors={wordCloudConfig.colors}
+                        selectedValue={drill.context?.value}
+                      />
+                    </div>
+                  </div>
+                )}
 
-                                  <span
-                                    className={`drill-sentiment-pill ${sentimentClass}`}
-                                  >
-                                    {review.sentiment}
-                                  </span>
+                {/* ================= REVIEWS ================= */}
+                {drill.data.reviews && drill.data.reviews.length > 0 && (
+                  <>
+                    <div ref={reviewsRef} className="drilldown-reviews drill-section">
+                      <div className="drilldown-reviews-header">
+                        <i className="bi bi-chat-square-text drilldown-chart-icon"></i>
+                        Reviews
+                        <span className="review-count-badge">
+                          {drill.data.pagination?.total_reviews?.toLocaleString() || drill.data.reviews.length}
+                        </span>
+                      </div>
+
+                      {/* ✅ Skeleton loader during pagination */}
+                      {reviewsLoading ? (
+                        renderReviewSkeletons(5)
+                      ) : (
+                        drill.data.reviews.map((review: DrillReview, index: number) => {
+                          const sentimentClass =
+                            review.sentiment?.toLowerCase() || "neutral";
+
+                          return (
+                            <div key={index} className="drill-review-item">
+                              {/* Accent bar */}
+                              <div
+                                className={`drill-review-accent ${sentimentClass}`}
+                              ></div>
+
+                              <div className="d-flex">
+                                {/* Emoji */}
+                                <div className="drill-review-emoji">
+                                  {sentimentEmoji(review.sentiment)}
                                 </div>
 
-                                {/* Body */}
-                                <div className="drill-review-text">
-                                  {review.message}
-                                </div>
+                                {/* Content */}
+                                <div className="flex-grow-1">
+                                  {/* Top row */}
+                                  <div className="drill-review-top">
+                                    <div className="drill-review-user">
+                                      <strong>{review.username}</strong>
+                                      <span className="drill-review-platform">
+                                        {review.platform}
+                                      </span>
+                                    </div>
 
-                                {/* Footer */}
-                                <div className="drill-review-footer">
-                                  <div className="drill-review-meta">
-                                    <span>{formatDate(review.created_date || review.date)}</span>
-                                    <span>·</span>
-                                    <span>{review.country}</span>
-                                    <span className="drill-review-stars">
-                                      {renderStars(review.rating)}
-                                    </span>
-                                  </div>
-
-                                  {review.link && (
-                                    <a
-                                      href={review.link}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="drill-review-link"
+                                    <span
+                                      className={`drill-sentiment-pill ${sentimentClass}`}
                                     >
-                                      View Original →
-                                    </a>
-                                  )}
+                                      {review.sentiment}
+                                    </span>
+                                  </div>
+
+                                  {/* Body */}
+                                  <div className="drill-review-text">
+                                    {review.message}
+                                  </div>
+
+                                  {/* Footer */}
+                                  <div className="drill-review-footer">
+                                    <div className="drill-review-meta">
+                                      <span>{formatDate(review.created_date || review.date)}</span>
+                                      <span>·</span>
+                                      <span>{review.country}</span>
+                                      <span className="drill-review-stars">
+                                        {renderStars(review.rating)}
+                                      </span>
+                                    </div>
+
+                                    {review.link && (
+                                      <a
+                                        href={review.link}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="drill-review-link"
+                                      >
+                                        View Original →
+                                      </a>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* ================= PAGINATION ================= */}
+                    {drill.data.pagination && drill.data.pagination.total_pages > 1 && (
+                      <div className="drill-pagination-wrapper">
+                        <div className="drill-pagination">
+                          {/* Previous button */}
+                          <button
+                            className="drill-page-nav"
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                          >
+                            <i className="bi bi-chevron-left"></i>
+                            Previous
+                          </button>
+
+                          {/* Page numbers */}
+                          <div className="drill-page-numbers">
+                            {renderPageNumbers()}
                           </div>
-                        );
-                      })
-                    )}
-                  </div>
 
-                  {/* ================= PAGINATION ================= */}
-                  {drill.data.pagination && drill.data.pagination.total_pages > 1 && (
-                    <div className="drill-pagination-wrapper">
-                      <div className="drill-pagination">
-                        {/* Previous button */}
-                        <button
-                          className="drill-page-nav"
-                          onClick={() => handlePageChange(currentPage - 1)}
-                          disabled={currentPage === 1}
-                        >
-                          <i className="bi bi-chevron-left"></i>
-                          Previous
-                        </button>
-
-                        {/* Page numbers */}
-                        <div className="drill-page-numbers">
-                          {renderPageNumbers()}
+                          {/* Next button */}
+                          <button
+                            className="drill-page-nav"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === (drill.data.pagination.total_pages || 1)}
+                          >
+                            Next
+                            <i className="bi bi-chevron-right"></i>
+                          </button>
                         </div>
 
-                        {/* Next button */}
-                        <button
-                          className="drill-page-nav"
-                          onClick={() => handlePageChange(currentPage + 1)}
-                          disabled={currentPage === (drill.data.pagination.total_pages || 1)}
-                        >
-                          Next
-                          <i className="bi bi-chevron-right"></i>
-                        </button>
+                        {/* Page info */}
+                        <div className="drill-pagination-info">
+                          Showing page {currentPage} of {drill.data.pagination.total_pages}
+                          {drill.data.pagination.total_reviews &&
+                            ` (${drill.data.pagination.total_reviews.toLocaleString()} total reviews)`
+                          }
+                        </div>
                       </div>
-                      
-                      {/* Page info */}
-                      <div className="drill-pagination-info">
-                        Showing page {currentPage} of {drill.data.pagination.total_pages}
-                        {drill.data.pagination.total_reviews && 
-                          ` (${drill.data.pagination.total_reviews.toLocaleString()} total reviews)`
-                        }
-                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Empty state */}
+                {!drill.data.cards &&
+                  !drill.data.charts?.length &&
+                  (!drill.data.reviews || drill.data.reviews.length === 0) && (
+                    <div className="drill-empty drill-section">
+                      <i className="bi bi-inbox"></i>
+                      <p>No drilldown data available for this selection.</p>
                     </div>
                   )}
-                </>
-              )}
-
-              {/* Empty state */}
-              {!drill.data.cards &&
-                !drill.data.charts?.length &&
-                (!drill.data.reviews || drill.data.reviews.length === 0) && (
-                  <div className="drill-empty drill-section">
-                    <i className="bi bi-inbox"></i>
-                    <p>No drilldown data available for this selection.</p>
-                  </div>
-                )}
-            </>
+              </>
             </>
           )}
         </div>
