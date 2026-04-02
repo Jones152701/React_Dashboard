@@ -17,6 +17,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 
 
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+from rest_framework.permissions import IsAuthenticated, BasePermission
+
+class IsAdminUserGroup(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.groups.filter(name="admin_user").exists()
 
 
 class CookieTokenObtainPairView(TokenObtainPairView):
@@ -64,7 +72,23 @@ def logout_view(request):
     return response
 
 
+class IsAdminUserGroup(BasePermission):
+    def has_permission(self, request, view):
+        return request.user.groups.filter(name="admin_user").exists()
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def user_info(request):
+    groups = list(request.user.groups.values_list("name", flat=True))
+    return Response({
+        "username": request.user.username,
+        "groups": groups
+    })
+
 class LensAnalyticsView(APIView):
+    
+    permission_classes = [IsAuthenticated, IsAdminUserGroup]
 
     # ================= MAIN API =================
     def get(self, request):
@@ -439,6 +463,7 @@ class LensAnalyticsView(APIView):
         })
 
 
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 def run_query(query, params):
@@ -764,39 +789,45 @@ class SocialMediaDailyView(APIView):
                                     print(f"✅ Applied string filter: LOWER({db_column}) = '{value}'")
                             
                             # ✅ CRITICAL FIX: Rebuild filters and params together
+                            # ✅ CRITICAL FIX: Rebuild filters and params together
                             if filter_condition:
-                                # Rebuild both arrays, removing any existing filters for this column
                                 new_filters = []
                                 new_params = []
-                                
-                                for f, p in zip(drill_filters, drill_filter_params):
-                                    # Check based on type
-                                    if col_type == "hour":
-                                        if "EXTRACT(HOUR" not in f:
-                                            new_filters.append(f)
-                                            new_params.append(p)
-                                    elif col_type == "weekday":
-                                        if "EXTRACT(DOW" not in f:
-                                            new_filters.append(f)
-                                            new_params.append(p)
-                                    else:
-                                        if db_column not in f:
-                                            new_filters.append(f)
-                                            new_params.append(p)
-                                
+                                param_idx = 0  # Track position in flat params list
+
+                                for f in drill_filters:
+                                    # Count how many %s placeholders this filter consumes
+                                    num_placeholders = f.count('%s')
+                                    these_params = drill_filter_params[param_idx: param_idx + num_placeholders]
+                                    param_idx += num_placeholders
+
+                                    # Decide whether to keep or drop this filter
+                                    should_exclude = False
+                                    if col_type == "hour" and "EXTRACT(HOUR" in f:
+                                        should_exclude = True
+                                    elif col_type == "weekday" and "EXTRACT(DOW" in f:
+                                        should_exclude = True
+                                    elif col_type not in ("hour", "weekday") and db_column in f:
+                                        should_exclude = True
+
+                                    if not should_exclude:
+                                        new_filters.append(f)
+                                        new_params.extend(these_params)  # ✅ extend, not append — preserves multi-param filters
+
                                 removed_count = len(drill_filters) - len(new_filters)
                                 if removed_count > 0:
                                     print(f"🔄 Removed {removed_count} existing filter(s) for column '{db_column}'")
-                                
+
                                 # Replace with cleaned lists
                                 drill_filters = new_filters
                                 drill_filter_params = new_params
-                                
-                                # Add the new filter and its param
+
+                                # Add the new drill filter and its single param
                                 drill_filters.append(filter_condition)
                                 drill_filter_params.append(filter_value)
                                 print(f"✅ Added new filter: {filter_condition}")
-                                    
+                       
+
                         except Exception as e:
                             print(f"❌ Error applying drill filter: {e}")
                             import traceback
@@ -1355,10 +1386,14 @@ class SocialMediaDailyView(APIView):
                     
                     # 6. Language Distribution
                     language_query = f"""
-                        SELECT LOWER(TRIM(language)) as language, COUNT(*) as count
+                        SELECT LOWER(TRIM(language)) AS language, COUNT(*) AS count
                         FROM {table}
-                        {where_clause + " AND language IS NOT NULL AND language != '' AND created_date >= %s AND created_date < %s" if where_clause else "WHERE language IS NOT NULL AND language != '' AND created_date >= %s AND created_date < %s"}
-                        GROUP BY LOWER(TRIM(language)) ORDER BY count DESC LIMIT 10
+                        {where_clause + " AND language IS NOT NULL AND TRIM(language) <> '' AND LOWER(TRIM(language)) <> 'nan' AND created_date >= %s AND created_date < %s"
+                        if where_clause else
+                        "WHERE language IS NOT NULL AND TRIM(language) <> '' AND LOWER(TRIM(language)) <> 'nan' AND created_date >= %s AND created_date < %s"}
+                        GROUP BY LOWER(TRIM(language))
+                        ORDER BY count DESC
+                        LIMIT 10
                     """
                     queries['language'] = (language_query, dashboard_params)
                     

@@ -17,7 +17,7 @@ interface NavLink {
 interface NavItem {
   id: string;
   title: string;
-  iconSrc: string; // image path  –or–  swap for a React SVG component
+  iconSrc: string;
   links: NavLink[];
 }
 
@@ -27,7 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     id: 'lens',
     title: 'Lens Analytics',
-    iconSrc: lensIcon, // ← update path
+    iconSrc: lensIcon,
     links: [
       { icon: 'O', label: 'Overview', href: '/LensAnalytics/Overview' },
       { icon: 'F', label: 'Feedback', href: '/LensAnalytics/Feedback' },
@@ -36,15 +36,15 @@ const NAV_ITEMS: NavItem[] = [
   {
     id: 'social',
     title: 'Social Media',
-    iconSrc: socialIcon,   // ← update path
+    iconSrc: socialIcon,
     links: [
       { icon: 'D', label: 'Dashboard', href: '/social_media' },
     ],
   },
-    {
+  {
     id: 'competitors',
     title: 'Competitors',
-    iconSrc: compIcon,   // ← update path
+    iconSrc: compIcon,
     links: [
       { icon: 'P', label: 'Plans', href: '/competitors-plan' },
     ],
@@ -55,11 +55,56 @@ const NAV_ITEMS: NavItem[] = [
 
 const Navbar: React.FC = () => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [isExpanded,   setIsExpanded]   = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [userGroups, setUserGroups] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   const navRef = useRef<HTMLElement>(null);
 
   const expanded = isExpanded || isMobileOpen;
+
+  // Fetch user groups from backend
+  useEffect(() => {
+    const fetchUserGroups = async () => {
+      try {
+        const token = localStorage.getItem('access_token');
+        
+        if (!token) {
+          console.log('No access token found');
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch("http://127.0.0.1:8000/api/user-info/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log('User groups fetched:', data.groups);
+          setUserGroups(data.groups || []);
+        } else if (response.status === 401) {
+          console.error('Unauthorized - token may be expired');
+          localStorage.removeItem('access_token');
+          localStorage.removeItem('refresh_token');
+          window.location.href = '/';
+        } else {
+          console.error('Failed to fetch user groups:', response.status);
+        }
+      } catch (error) {
+        console.error('Error fetching user groups:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserGroups();
+  }, []);
 
   // Toggle dropdown — only when sidebar is expanded
   const toggleDropdown = (id: string) => {
@@ -88,7 +133,10 @@ const Navbar: React.FC = () => {
   // Close on Escape
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setIsMobileOpen(false); setOpenDropdown(null); }
+      if (e.key === 'Escape') { 
+        setIsMobileOpen(false); 
+        setOpenDropdown(null); 
+      }
     };
     document.addEventListener('keydown', onEsc);
     return () => document.removeEventListener('keydown', onEsc);
@@ -98,6 +146,28 @@ const Navbar: React.FC = () => {
   useEffect(() => {
     if (!expanded) setOpenDropdown(null);
   }, [expanded]);
+
+  // Don't render anything while loading
+  if (loading) {
+    return null;
+  }
+
+  // ✅ CORRECTED FILTER LOGIC
+  // Hide Lens Analytics for users NOT in admin_user group
+  const filteredNavItems = NAV_ITEMS.filter(item => {
+    // ❌ If user is NOT in admin_user AND trying to access Lens → hide it
+    if (!userGroups.includes('admin_user') && item.id === 'lens') {
+      return false;
+    }
+    
+    // ✅ Allow all other items for everyone
+    return true;
+  });
+
+  // Optional: Don't render navbar if no items are accessible
+  if (filteredNavItems.length === 0) {
+    return null;
+  }
 
   return (
     <>
@@ -125,12 +195,11 @@ const Navbar: React.FC = () => {
         aria-label="Main navigation"
       >
         <div className="nb-menu">
-          {NAV_ITEMS.map(item => {
+          {filteredNavItems.map(item => {
             const isOpen = openDropdown === item.id;
 
             return (
               <div key={item.id}>
-
                 {/* Nav row button */}
                 <button
                   className={`nb-btn ${isOpen ? 'open' : ''}`}
@@ -169,7 +238,10 @@ const Navbar: React.FC = () => {
                       className="nb-link"
                       href={link.href}
                       role="menuitem"
-                      onClick={e => { e.preventDefault(); handleNavigation(link.href); }}
+                      onClick={e => { 
+                        e.preventDefault(); 
+                        handleNavigation(link.href); 
+                      }}
                       onKeyDown={e => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
@@ -182,7 +254,6 @@ const Navbar: React.FC = () => {
                     </a>
                   ))}
                 </div>
-
               </div>
             );
           })}
