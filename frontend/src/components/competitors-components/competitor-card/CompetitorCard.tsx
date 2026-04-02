@@ -24,12 +24,17 @@ const CompetitorCard: React.FC<CompetitorCardProps> = ({
       str
         .toLowerCase()
         .replace(/&/g, "and")
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "");
+        .replace(/\s+/g, "-");
 
     const slug = `${clean(name)}__${clean(type)}__${clean(country || "")}`;
 
-    navigate(`/${slug}`);
+    navigate(`/${slug}`, {
+      state: {
+        name,
+        type,
+        country
+      }
+    });
   };
 
   return (

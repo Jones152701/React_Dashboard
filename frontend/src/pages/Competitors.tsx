@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getCompetitorLogo } from "../utils/getCompetitorLogo";
 import Header from "../components/header/header";
 import Navbar from "../components/navbar/navbar";
@@ -22,21 +23,24 @@ interface MatrixSlide {
 }
 
 const Competitors: React.FC = () => {
+  // 🔥 Use URL search params for filter persistence
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [countries, setCountries] = useState<string[]>([]);
   const [types, setTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // 🔥 State for search
+  // 🔥 State for search (local only - not persisted)
   const [search, setSearch] = useState("");
   
   // 🔹 State for matrix slides (carousel)
   const [matrixSlides, setMatrixSlides] = useState<MatrixSlide[]>([]);
 
+  // 🔥 Initialize filters from URL params or defaults
   const [filters, setFilters] = useState({
-    country: "United Kingdom",
-    competitor_type: "all"
+    country: searchParams.get("country") || "United Kingdom",
+    competitor_type: searchParams.get("competitor_type") || "all"
   });
 
   /* 🔹 favicon */
@@ -51,7 +55,6 @@ const Competitors: React.FC = () => {
   }, []);
 
   /* ================= API CALL ================= */
-
   const fetchData = async () => {
     setLoading(true);
 
@@ -91,27 +94,33 @@ const Competitors: React.FC = () => {
     fetchData();
   }, [filters]);
   
+  /* 🔥 Sync filters to URL whenever they change */
+  useEffect(() => {
+    setSearchParams({
+      country: filters.country,
+      competitor_type: filters.competitor_type
+    });
+  }, [filters, setSearchParams]);
+  
   /* 🔥 Filter competitors based on search */
   const filteredCompetitors = competitors.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
   );
 
   /* ================= UI ================= */
-
   return (
     <>
       <Header />
       <Navbar />
 
       <div className="pagewrap">
-
         {/* 🔹 Filters */}
         <SecondaryHeader
             countries={countries}
             competitorTypes={types}
             onFilterChange={setFilters}
             defaultFilters={filters}
-            />
+        />
 
         {/* 🔹 Main Content */}
         <div className="analyticscontent">
@@ -202,7 +211,6 @@ const Competitors: React.FC = () => {
           )}
 
         </div>
-
       </div>
     </>
   );
