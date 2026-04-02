@@ -1,54 +1,56 @@
-
 import React, { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
-
 import { toast } from "react-toastify";
 
 import logo from "../../assets/images/header_logo.png";
 import "./Header.css";
 
+const API_BASE_URL = "http://localhost:8000";
+
 const Header: React.FC = () => {
-
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const confirmLogout = () => {
+  const confirmLogout = async () => {
+    setIsLoading(true);
 
-    setShowLogoutModal(false);
+    try {
+      await fetch(`${API_BASE_URL}/logout/`, {
+        method: "POST",
+        credentials: "include", // 🔥 required for cookies
+      });
 
-    toast.success("You have been logged out successfully!", {
-      autoClose: 1000
-    });
+      toast.success("You have been logged out successfully!", {
+        autoClose: 1000,
+      });
 
-    setTimeout(() => {
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 1000);
 
-      localStorage.removeItem("access");
-      localStorage.removeItem("refresh");
-
-      document.cookie = "access=; Max-Age=0; path=/";
-
-      window.location.href = "/login";
-
-    }, 1000);
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Logout failed. Try again.");
+    } finally {
+      setIsLoading(false);
+      setShowLogoutModal(false);
+    }
   };
 
   return (
     <>
-
       {/* HEADER */}
-      <header className="bg-white shadow-sm border-bottom p-2" >
-
+      <header className="bg-white shadow-sm border-bottom p-2">
         <div className="container-fluid d-flex align-items-center justify-content-between py-1">
 
           {/* LEFT - LOGO */}
           <div className="d-flex align-items-center">
-
             <img
               src={logo}
               alt="Lyca AI"
               className="header-logo"
             />
-
           </div>
 
           {/* RIGHT - LOGOUT */}
@@ -60,15 +62,11 @@ const Header: React.FC = () => {
           </button>
 
         </div>
-
       </header>
-
 
       {/* LOGOUT MODAL */}
       {showLogoutModal && (
-
         <div className="logout-modal-backdrop">
-
           <div className="logout-modal-card text-center">
 
             <div className="text-warning fs-2 mb-2">⚠️</div>
@@ -86,6 +84,7 @@ const Header: React.FC = () => {
               <button
                 className="btn btn-secondary"
                 onClick={() => setShowLogoutModal(false)}
+                disabled={isLoading}
               >
                 Cancel
               </button>
@@ -93,21 +92,18 @@ const Header: React.FC = () => {
               <button
                 className="btn btn-danger"
                 onClick={confirmLogout}
+                disabled={isLoading}
               >
-                Yes, Logout
+                {isLoading ? "Logging out..." : "Yes, Logout"}
               </button>
 
             </div>
 
           </div>
-
         </div>
-
       )}
-
     </>
   );
 };
 
 export default Header;
-

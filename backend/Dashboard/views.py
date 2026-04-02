@@ -9,9 +9,59 @@ from .chart_builder import build_chart
 from .word_cloud import  generate_wordcloud
 import markdown
 import logging
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 logger = logging.getLogger(__name__)
 
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
+
+
+
+
+class CookieTokenObtainPairView(TokenObtainPairView):
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+
+        if response.status_code == 200:
+            access = response.data.get("access")
+            refresh = response.data.get("refresh")
+
+            # Set cookies
+            response.set_cookie(
+                key="access_token",
+                value=access,
+                httponly=True,
+                secure=True,  # 🔒 True in production (HTTPS)
+                samesite="None"
+            )
+
+            response.set_cookie(
+                key="refresh_token",
+                value=refresh,
+                httponly=True,
+                secure=True,
+                samesite="None"
+            )
+
+        return response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def protected_view(request):
+    return Response({"message": "You are authenticated"})
+
+
+
+@api_view(["POST"])
+def logout_view(request):
+    response = Response({"message": "Logged out"})
+
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+
+    return response
 
 
 class LensAnalyticsView(APIView):
