@@ -41,10 +41,10 @@ const CompetitorDetail = () => {
     const { slug } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
-    
+
     // ✅ Moved INSIDE the component - after useLocation()
     const stateData = location.state as LocationState;
-    
+
     const [data, setData] = useState<CompetitorData | null>(null);
     const [error, setError] = useState<string | null>(null);
 
@@ -103,13 +103,8 @@ const CompetitorDetail = () => {
 
     // Handle back navigation with filters
     const handleBack = () => {
-        const returnFilters = sessionStorage.getItem('returnFilters');
-        if (returnFilters) {
-            navigate(`/competitors?${returnFilters}`);
-        } else {
-            navigate('/competitors');
-        }
-    };
+    navigate("/competitors-plan");
+};
 
     if (error) {
         return (

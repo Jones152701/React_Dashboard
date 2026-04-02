@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { getCompetitorLogo } from "../utils/getCompetitorLogo";
 import Header from "../components/header/header";
 import Navbar from "../components/navbar/navbar";
@@ -23,8 +22,8 @@ interface MatrixSlide {
 }
 
 const Competitors: React.FC = () => {
-  // 🔥 Use URL search params for filter persistence
-  const [searchParams, setSearchParams] = useSearchParams();
+  // ❌ REMOVED: useSearchParams
+  // const [searchParams, setSearchParams] = useSearchParams();
 
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [countries, setCountries] = useState<string[]>([]);
@@ -37,10 +36,16 @@ const Competitors: React.FC = () => {
   // 🔹 State for matrix slides (carousel)
   const [matrixSlides, setMatrixSlides] = useState<MatrixSlide[]>([]);
 
-  // 🔥 Initialize filters from URL params or defaults
-  const [filters, setFilters] = useState({
-    country: searchParams.get("country") || "United Kingdom",
-    competitor_type: searchParams.get("competitor_type") || "all"
+  // ✅ Initialize filters from sessionStorage or defaults
+  const [filters, setFilters] = useState(() => {
+    const saved = sessionStorage.getItem("competitorFilters");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    return {
+      country: "United Kingdom",
+      competitor_type: "all"
+    };
   });
 
   /* 🔹 favicon */
@@ -94,13 +99,10 @@ const Competitors: React.FC = () => {
     fetchData();
   }, [filters]);
   
-  /* 🔥 Sync filters to URL whenever they change */
+  // ✅ Persist filters to sessionStorage whenever they change
   useEffect(() => {
-    setSearchParams({
-      country: filters.country,
-      competitor_type: filters.competitor_type
-    });
-  }, [filters, setSearchParams]);
+    sessionStorage.setItem("competitorFilters", JSON.stringify(filters));
+  }, [filters]);
   
   /* 🔥 Filter competitors based on search */
   const filteredCompetitors = competitors.filter((c) =>

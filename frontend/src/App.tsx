@@ -20,6 +20,7 @@ function App() {
       <Route path="/social_media" element={<SocialMedia />} />
 
       <Route path="LensAnalytics/Overview" element={<LenAnalytics />} />
+      <Route path="" element={<LenAnalytics />} />
 
       <Route path="competitors-plan" element={<Competitors />} />
 
