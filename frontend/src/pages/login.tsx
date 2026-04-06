@@ -7,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 import "../assets/css/login.css";
 import favicon from "../assets/images/favicon.ico"
 import loginLogo from "../assets/images/login_logo.png";
+import api from "../config";
 
 
 const setFavicon = (iconPath: string) => {
@@ -24,8 +25,7 @@ const setFavicon = (iconPath: string) => {
 
 
 
-// API configuration
-const API_BASE_URL = "http://localhost:8000";
+// API configuration is imported from src/config.ts
 
 const Login: React.FC = () => {
 
@@ -45,40 +45,26 @@ const Login: React.FC = () => {
     setIsLoading(true);
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/token/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // ✅ REQUIRED
-        body: JSON.stringify({ username, password }),
+      await api.post("/api/token/", { username, password });
+
+      toast.success("You have logged in successfully.", {
+        position: "top-right",
+        autoClose: 1200,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: false,
+        draggable: true,
       });
-      const result = await response.json();
 
-      if (response.ok) {
-        
-
-        toast.success("You have logged in successfully.", {
-          position: "top-right",
-          autoClose: 1200,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: false,
-          draggable: true,
-        });
-
-        // Short delay for toast to be seen before redirect
-        setTimeout(() => {
-          navigate("/social_media");
-        }, 1200);
-      } else {
-        // Handle specific error messages from backend
-        const errorMessage = result.detail || "Invalid username or password.";
-        toast.error(errorMessage);
-      }
-    } catch (error) {
+      // Short delay for toast to be seen before redirect
+      setTimeout(() => {
+        navigate("/social_media");
+      }, 1200);
+    } catch (error: any) {
       console.error("Login error:", error);
-      toast.error("Network error. Please check your connection and try again.");
+      const errorMessage =
+        error?.response?.data?.detail || "Invalid username or password.";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

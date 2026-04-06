@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import api from "../config";
 
 const PrivateRoute = ({ children }: any) => {
   const [isAuth, setIsAuth] = useState<boolean | null>(null);
@@ -7,12 +8,8 @@ const PrivateRoute = ({ children }: any) => {
   useEffect(() => {
     const verifyUser = async () => {
       try {
-        const res = await fetch("http://localhost:8000/protected/", {
-          method: "GET",
-          credentials: "include", // ✅ ONLY THIS is needed
-        });
-
-        setIsAuth(res.ok);
+        await api.get("/protected/");
+        setIsAuth(true);
       } catch {
         setIsAuth(false);
       }

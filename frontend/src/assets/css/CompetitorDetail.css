@@ -1,110 +1,707 @@
-/* ================= HEADER CENTER ================= */
+/* ==========================================================
+   COMPETITOR DETAIL — Premium Design System
+   ========================================================== */
 
-.competitor-header {
-  text-align: center;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ── Page wrapper ── */
+.cd-content {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 8px 0 40px;
+  animation: cdFadeIn 0.45s ease both;
+  width: 100%;
+  box-sizing: border-box;
 }
 
+@keyframes cdFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
 
-
-.competitor-section {
-  margin-top: 30px;
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.plan-card, .tier-card {
+/* ────────────────────────────────────────────────
+   BACK BUTTON
+──────────────────────────────────────────────── */
+.cd-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 20px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 12px;
   background: #fff;
-  padding: 16px;
-  border-radius: 10px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-
-/* ================= MARKDOWN BASE ================= */
-
-.plan-card, .tier-card {
-  line-height: 1.6;
+  color: #374151;
   font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.22s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
-/* ================= HEADINGS (STRONGER LIKE IMAGE) ================= */
+.cd-back-btn:hover {
+  background: #f5f3ff;
+  border-color: #7B61FF;
+  color: #7B61FF;
+  transform: translateX(-3px);
+}
 
-.plan-card h1,
-.tier-card h1 {
+/* ────────────────────────────────────────────────
+   HERO BACK BUTTON
+──────────────────────────────────────────────── */
+.cd-back-btn-hero {
+  position: absolute;
+  top: 20px;
+  left: 32px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+
+.cd-back-btn-hero:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ────────────────────────────────────────────────
+   HERO CARD
+──────────────────────────────────────────────── */
+.cd-hero {
+  position: relative;
+  /* Premium Dark Mesh Gradient */
+  background-color: #0f172a;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(123, 97, 255, 0.4) 0px, transparent 60%),
+    radial-gradient(at 100% 100%, rgba(5, 150, 105, 0.25) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(59, 130, 246, 0.3) 0px, transparent 50%);
+  border-radius: 20px;
+  padding: 52px 32px 28px 32px;
+  /* Increased top padding to accommodate top-left back button */
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+  animation: cdHeroIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@keyframes cdHeroIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Glowing orb in background */
+.cd-hero-glow {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(123, 97, 255, 0.25) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* Avatar circle with first letter - Updated to match a softer light purple */
+.cd-hero-avatar {
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: #7B61FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -1px;
+  box-shadow: 0 8px 24px rgba(123, 97, 255, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.25);
+  animation: cdAvatarPop 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+}
+
+.cd-hero-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 14px; /* Slightly less than container to fit inside border */
+}
+
+@keyframes cdAvatarPop {
+  from {
+    transform: scale(0.6) rotate(-10deg);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.cd-hero-info {
+  flex: 1;
+  min-width: 0;
+  z-index: 1;
+  /* keep above glow */
+}
+
+.cd-hero-name {
   font-size: 24px;
   font-weight: 800;
-  margin: 20px 0 12px;
+  color: #fff;
+  margin: 0 0 12px;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
 }
 
-.plan-card h2,
-.tier-card h2 {
-  font-size: 25px;
+.cd-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Generic badge */
+.cd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 700;
-  margin: 18px 0 10px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 
-.plan-card h3,
-.tier-card h3 {
-  font-size: 25px;
-  font-weight: 700;
-  margin: 16px 0 8px;
+.cd-badge i {
+  font-size: 12px;
 }
 
-.plan-card h4,
-.tier-card h4 {
-  font-size: 16px;
+.cd-badge-country {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e7ff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(4px);
+}
+
+.cd-badge-date {
+  background: rgba(255, 255, 255, 0.06);
+  color: #c7d2fe;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Base override for dynamic badges (Type) */
+.cd-badge[style] {
+  border-width: 1px !important;
+}
+
+/* Stats strip */
+.cd-hero-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 16px 24px;
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.cd-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cd-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+}
+
+.cd-stat-label {
+  font-size: 11px;
   font-weight: 600;
-  margin: 14px 0 6px;
+  color: #a5b4fc;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
 }
 
-/* Paragraph */
-.plan-card p, .tier-card p {
-  margin: 8px 0;
-  
-}
-
-/* ================= TABLE ================= */
-
-.plan-card table,
-.tier-card table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: 16px 0;
-  font-size: 13px;
-}
-
-/* Header */
-.plan-card th,
-.tier-card th {
-  background: #f5f6f8;
-  font-weight: 600;
-  text-align: left;
-  padding: 10px;
-  border: 1px solid #ddd;
-}
-
-/* Cells */
-.plan-card td,
-.tier-card td {
-  padding: 10px;
-  border: 1px solid #ddd;
-}
-
-/* Row hover */
-.plan-card tr:hover,
-.tier-card tr:hover {
-  background: #fafafa;
-}
-
-/* ================= LIST ================= */
-
-.plan-card ul,
-.plan-card ol {
-  padding-left: 20px;
+.cd-stat-divider {
+  width: 32px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
   margin: 10px 0;
 }
 
-/* ================= LINKS ================= */
+/* ────────────────────────────────────────────────
+   TABS
+──────────────────────────────────────────────── */
+.cd-tabs-container {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 10px 0 24px;
+}
 
-.plan-card a {
-  color: #007bff;
+.cd-page-tabs {
+  display: inline-flex;
+  gap: 8px;
+  background: #f8f9fa;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.cd-page-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cd-page-tab i {
+  font-size: 18px;
+}
+
+.cd-page-tab:hover {
+  color: #111827;
+  background: #f1f5f9;
+}
+
+/* Custom coloring for active states */
+.cd-page-tab.tab-plans.active {
+  background: #7B61FF;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(123, 97, 255, 0.3);
+}
+
+.cd-page-tab.tab-tiers.active {
+  background: #059669;
+  /* Emerald matching tier icon */
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(5, 150, 105, 0.25);
+}
+
+/* ────────────────────────────────────────────────
+   SECTION
+──────────────────────────────────────────────── */
+.cd-section {
+  background: #fff;
+  border: 1.5px solid #f1f1f4;
+  border-radius: 20px;
+  padding: 32px 36px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.03);
+  animation: cdSectionIn 0.5s ease both;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@keyframes cdSectionIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cd-section-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1.5px solid #f3f4f6;
+}
+
+.cd-section-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.cd-icon-plans {
+  background: #f5f3ff;
+  color: #7B61FF;
+}
+
+.cd-icon-tiers {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.cd-section-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+  margin: 0 0 4px;
+}
+
+.cd-section-sub {
+  font-size: 13.5px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+/* ── Empty state ── */
+.cd-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px;
+  color: #9ca3af;
+  font-size: 15px;
+}
+
+.cd-empty i {
+  font-size: 40px;
+  opacity: 0.4;
+}
+
+/* ────────────────────────────────────────────────
+   PLANS GRID
+──────────────────────────────────────────────── */
+/* CHANGED: From grid to column layout to allow large markdown content/tables room to display */
+.cd-plans-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  /* Force grid container to span full width */
+}
+
+.cd-plan-card {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 28px 30px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: cdCardIn 0.4s ease both;
+  overflow-x: auto;
+  width: 100%;
+  box-sizing: border-box;
+  /* Add dynamic colored left border to make plans distinguishable */
+  border-left: 6px solid #e5e7eb;
+  position: relative;
+}
+
+/* Cyclic colors for plan cards */
+.cd-plan-card:nth-child(3n+1) { border-left-color: #7B61FF; } /* Purple */
+.cd-plan-card:nth-child(3n+2) { border-left-color: #059669; } /* Emerald */
+.cd-plan-card:nth-child(3n)   { border-left-color: #3b82f6; } /* Blue */
+
+.cd-plan-card:hover {
+  box-shadow: 0 12px 36px rgba(123, 97, 255, 0.1);
+
+
+}
+
+
+/* ────────────────────────────────────────────────
+   MARKDOWN PLAN CONTENT (.plan-html)
+──────────────────────────────────────────────── */
+.plan-html {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: #374151;
+  /* Dark gray for good readability */
+  line-height: 1.6;
+  font-size: 14.5px;
+}
+
+/* Typography styles inside markdown */
+.plan-html h1,
+.plan-html h2,
+.plan-html h3 {
+  margin: 16px 0 12px 0;
+  font-weight: 800;
+  color: #111827;
+}
+
+.plan-html h1 {
+  font-size: 22px;
+  color: #312e81; /* Deep indigo */
+}
+
+.plan-html h2 {
+  font-size: 19px;
+  color: #4338ca;
+  display: inline-block;
+  border-bottom: 3px solid #e0e7ff;
+  padding-bottom: 4px;
+}
+
+.plan-html h3 {
+  font-size: 16px;
+}
+
+.plan-html h1:first-child,
+.plan-html h2:first-child,
+.plan-html h3:first-child {
+  margin-top: 0;
+}
+
+.plan-html p {
+  margin: 0 0 4px 0;
+}
+
+.plan-html ul,
+.plan-html ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.plan-html a {
+  color: #7B61FF;
   text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+/* Beautiful Table Formatting */
+.plan-html table {
+  display: table;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-top: 16px;
+  margin-bottom: 24px;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.06);
+}
+
+.plan-html th {
+  background: linear-gradient(135deg, #7B61FF 0%, #6366f1 100%);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 16px 18px;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border: none;
+}
+
+.plan-html td {
+  padding: 14px 18px;
+  vertical-align: middle;
+  border-top: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  font-size: 14px;
+  color: #374151;
+  background: #ffffff;
+}
+
+.plan-html tr:nth-child(even) td {
+  background: #fafaf9; /* Very soft warm gray for zebra striping */
+}
+
+.plan-html td:last-child {
+  border-right: none;
+}
+
+/* Key-value look inside table */
+.plan-html td strong {
+  display: block;
+  color: #111827;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+
+
+/* ────────────────────────────────────────────────
+   SKELETON LOADER
+──────────────────────────────────────────────── */
+.cd-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 4px 0;
+}
+
+.cd-skeleton-hero {
+  height: 160px;
+  border-radius: 20px;
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+  background-size: 200% 100%;
+  animation: cdShimmer 1.5s infinite;
+}
+
+.cd-skeleton-section {
+  height: 120px;
+  border-radius: 18px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1.5px solid #f3f4f6;
+}
+
+.cd-skeleton-bar {
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+  background-size: 200% 100%;
+  animation: cdShimmer 1.5s infinite;
+}
+
+.cd-skeleton-title {
+  height: 20px;
+  width: 40%;
+}
+
+.cd-skeleton-short {
+  width: 60%;
+}
+
+@keyframes cdShimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ────────────────────────────────────────────────
+   ERROR STATE
+──────────────────────────────────────────────── */
+.cd-error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 80px 40px;
+  text-align: center;
+}
+
+.cd-error-icon {
+  font-size: 56px;
+  animation: cdBounce 0.6s ease;
+}
+
+@keyframes cdBounce {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+
+  70% {
+    transform: scale(1.1);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.cd-error-state h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.cd-error-state p {
+  font-size: 14px;
+  color: #dc2626;
+  margin: 0;
+}
+
+/* ────────────────────────────────────────────────
+   RESPONSIVE
+──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .cd-hero {
+    flex-direction: column;
+    padding: 32px 24px;
+    gap: 24px;
+  }
+
+  .cd-hero-stats {
+    flex-direction: row;
+    width: 100%;
+    justify-content: center;
+    padding: 16px 20px;
+  }
+
+  .cd-stat-divider {
+    width: 1px;
+    height: 36px;
+    margin: 0 16px;
+  }
+
+  .cd-section {
+    padding: 24px 20px;
+  }
+
+  .cd-plans-grid {
+    flex-direction: column;
+  }
+
+  .cd-hero-name {
+    font-size: 26px;
+    text-align: center;
+  }
+
+  .cd-hero-badges {
+    justify-content: center;
+  }
 }

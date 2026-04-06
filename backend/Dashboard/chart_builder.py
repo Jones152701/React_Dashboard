@@ -11,7 +11,7 @@ def build_chart(
     tooltip="",
     icon="",
     layout=None,
-    color=None,  # Can be string, list, or dict
+    color=None,  
     radius=None,
     margin=None,
     x_label_offset=None,

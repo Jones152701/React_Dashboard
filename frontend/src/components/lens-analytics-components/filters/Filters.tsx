@@ -52,18 +52,8 @@ const Filters: React.FC<FiltersProps> = ({
     onFiltersChange?.(newState);
   };
 
-  /* ───────── DEBOUNCE HANDLER ───────── */
-  const debounceEmit = (newFrom: string, newTo: string) => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-
-    timeoutRef.current = setTimeout(() => {
-      emitChange({
-        fromDate: newFrom,
-        toDate: newTo,
-        dateRange: "custom",
-      });
-    }, 400);
-  };
+  /* ───────── NO MORE AUTO DEBOUNCE ───────── */
+  // The user now must explicitly click 'Apply' for custom dates
 
   /* ───────── CLEANUP ───────── */
   useEffect(() => {
@@ -78,20 +68,12 @@ const Filters: React.FC<FiltersProps> = ({
     const newFrom = e.target.value;
     setFromDate(newFrom);
     setDateRange("custom");
-
-    if (newFrom && toDate) {
-      debounceEmit(newFrom, toDate);
-    }
   };
 
   const handleToDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTo = e.target.value;
     setToDate(newTo);
     setDateRange("custom");
-
-    if (fromDate && newTo) {
-      debounceEmit(fromDate, newTo);
-    }
   };
 
   const handleDateRangeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -141,13 +123,6 @@ const Filters: React.FC<FiltersProps> = ({
 
     setFromDate(formattedFrom);
     setToDate(formattedTo);
-
-    // 🔥 Immediate API call (no debounce)
-    emitChange({
-      fromDate: formattedFrom,
-      toDate: formattedTo,
-      dateRange: range,
-    });
   };
 
   return (
@@ -198,6 +173,31 @@ const Filters: React.FC<FiltersProps> = ({
             min={fromDate}
             onChange={handleToDateChange}
           />
+        </div>
+
+        {/* Apply Button */}
+        <div className="filter-group">
+          <label className="filter-label" style={{ opacity: 0, visibility: 'hidden' }}>&nbsp;</label>
+          <button
+            style={{
+              height: "38px",
+              backgroundColor: "#7B61FF",
+              color: "#fff",
+              border: "none",
+              borderRadius: "10px",
+              cursor: "pointer",
+              fontWeight: "600",
+              fontSize: "14px",
+              padding: "0 20px",
+              boxShadow: "0 2px 8px rgba(123, 97, 255, 0.2)",
+              transition: "all 0.2s"
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.backgroundColor = "#6A52E8"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseOut={(e) => { e.currentTarget.style.backgroundColor = "#7B61FF"; e.currentTarget.style.transform = "translateY(0)"; }}
+            onClick={() => emitChange({ fromDate, toDate, dateRange: "custom" })}
+          >
+            Apply
+          </button>
         </div>
       </div>
     </div>

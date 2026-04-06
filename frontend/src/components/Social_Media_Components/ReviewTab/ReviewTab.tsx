@@ -4,6 +4,7 @@ import type { FilterState } from "../subheader/subheader";
 import postive from '../../../assets/images/positive.png';
 import negative from '../../../assets/images/negative.png';
 import neutral from '../../../assets/images/neutral.png';
+import api from "../../../config";
 
 interface Review {
   username: string;
@@ -47,45 +48,32 @@ const ReviewTab: React.FC<Props> = ({ filters }) => {
       setIsSearching(true);
 
       try {
-        const params = new URLSearchParams();
+        const params: Record<string, string> = {
+          type: "reviews",
+          from_date: filters.fromDate,
+          to_date: filters.toDate,
+          page: String(page),
+        };
 
-        // Explicitly mark this as a reviews request
-        params.append("type", "reviews");
-        
-        params.append("from_date", filters.fromDate);
-        params.append("to_date", filters.toDate);
-        params.append("page", String(page));
-
-        // Only add filters if they're not "all"
         if (filters.countries && !filters.countries.includes("all")) {
-          params.append("countries", filters.countries.join(","));
+          params.countries = filters.countries.join(",");
         }
-
         if (filters.platforms && !filters.platforms.includes("all")) {
-          params.append("platforms", filters.platforms.join(","));
+          params.platforms = filters.platforms.join(",");
         }
-
         if (filters.sentiments && !filters.sentiments.includes("all")) {
-          params.append("sentiments", filters.sentiments.join(","));
+          params.sentiments = filters.sentiments.join(",");
         }
-
-        // Add search if exists
         if (debouncedSearch.trim()) {
-          params.append("search", debouncedSearch.trim());
+          params.search = debouncedSearch.trim();
         }
 
-        // DEBUG: Log the URL
-        const url = `http://localhost:8000/social_media/?${params.toString()}`;
-        console.log("Fetching reviews:", url);
+        const { data } = await api.get("/social_media/", { params });
+        console.log("Reviews response:", data);
 
-        const response = await fetch(url);
-        const result = await response.json();
-        
-        console.log("Reviews response:", result);
-        
-        setReviews(result.reviews || []);
-        setTotalPages(result.total_pages || 0);
-        setTotalReviews(result.total_reviews || 0);
+        setReviews(data.reviews || []);
+        setTotalPages(data.total_pages || 0);
+        setTotalReviews(data.total_reviews || 0);
       } catch (error) {
         console.error("Error fetching reviews:", error);
       } finally {

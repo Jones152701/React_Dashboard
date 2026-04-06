@@ -16,6 +16,7 @@ import math
 
 
 
+
 logger = logging.getLogger(__name__)
 
 # class IsAdminUserGroup(BasePermission):
@@ -659,23 +660,12 @@ class SocialMediaDailyView(APIView):
                         "platform": ("platform", "string"),
                         "country": ("country", "string"),
                         "sentiment": ("sentiment", "string"),
-                        
-                        # Map frontend 'segment' to database 'sentiment'
                         "segment": ("sentiment", "string"),
-                        
-                        # Map frontend 'text' to database 'message' for word cloud drilldown
                         "text": ("message", "string"),
-                        
-                        # Map frontend 'hour' to derived column
                         "hour": ("created_date", "hour"),
-                        
-                        # ✅ FIX: Map 'day' for WEEKDAY charts (activity by day)
-                        "day": ("created_date", "weekday"),  # <-- Changed from 'date' to 'weekday'
-                        
-                        # Map 'date' for actual date drilldown (daily trend)
+                        "day": ("created_date", "weekday"), 
                         "date": ("created_date", "date"),
                         "created_date": ("created_date", "date"),
-                        
                         "primary_mention": ("primary_mention", "string"),
                         "issue_type": ("issue_type", "string"),
                         "journey_stage": ("journey_stage", "string"),
@@ -2005,6 +1995,12 @@ class CompetitorsView(APIView):
                 ORDER BY competitor_type
             """
 
+            # 🔹 GLOBAL TOTAL (Without Filters)
+            global_total_query = f"""
+                SELECT COUNT(DISTINCT name)
+                FROM {table}
+            """
+
             with connection.cursor() as cursor:
 
                 # 🔹 competitors
@@ -2090,6 +2086,10 @@ class CompetitorsView(APIView):
                 cursor.execute(type_query)
                 competitor_types = [row[0] for row in cursor.fetchall()]
 
+                # 🔹 global total
+                cursor.execute(global_total_query)
+                global_total = cursor.fetchone()[0] or 0
+
             # ===============================
             # 🔹 RESPONSE
             # ===============================
@@ -2100,6 +2100,7 @@ class CompetitorsView(APIView):
                 },
                 "data": {
                     "total": len(competitors),
+                    "global_total": global_total,
                     "competitors": competitors,
                     "matrix_slides": matrix_slides  # ✅ Array of {tier, html}
                 }

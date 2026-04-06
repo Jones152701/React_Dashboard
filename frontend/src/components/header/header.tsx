@@ -5,8 +5,7 @@ import { toast } from "react-toastify";
 
 import logo from "../../assets/images/header_logo.png";
 import "./Header.css";
-
-const API_BASE_URL = "http://localhost:8000";
+import api from "../../config";
 
 const Header: React.FC = () => {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -16,10 +15,7 @@ const Header: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await fetch(`${API_BASE_URL}/logout/`, {
-        method: "POST",
-        credentials: "include", // 🔥 required for cookies
-      });
+      await api.post("/logout/");
 
       toast.success("You have been logged out successfully!", {
         autoClose: 1000,

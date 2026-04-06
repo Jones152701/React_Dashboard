@@ -41,13 +41,23 @@
   font-weight: 600;
 }
 
+/* Badges wrapper */
+.competitor-badges {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 /* Type badge */
 .competitor-type {
-  margin-top: 8px;
   font-size: 12px;
+  font-weight: 600;
   padding: 4px 10px;
   border-radius: 20px;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Different styles */
@@ -63,14 +73,14 @@
 
 /* Country with flag */
 .competitor-country {
-  margin-top: 10px;
   font-size: 12px;
+  font-weight: 500;
   color: #6c757d;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   background: #f8f9fa;
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: 20px;
 }
 

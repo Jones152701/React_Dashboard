@@ -10,7 +10,7 @@ import AiInsightsTab from "../components/Social_Media_Components/AIInsightsTab/A
 import Drilldown from "../components/Social_Media_Components/drilldown/Drilldown";
 import type { SocialMediaResponse } from "../types/socialMedia";
 import favicon from "../assets/images/favicon.ico"
-
+import api from "../config";
 import "../assets/css/social_media.css";
 
 // Drill State Type
@@ -85,34 +85,24 @@ function SocialMedia() {
       setLoading(true);
 
       try {
-        const params = new URLSearchParams();
+        const params: Record<string, string> = {
+          from_date: filters.fromDate,
+          to_date: filters.toDate,
+        };
 
-        params.append("from_date", filters.fromDate);
-        params.append("to_date", filters.toDate);
-
-        // Only add filters if they're not "all"
         if (filters.countries && !filters.countries.includes("all")) {
-          params.append("countries", filters.countries.join(","));
+          params.countries = filters.countries.join(",");
         }
-
         if (filters.platforms && !filters.platforms.includes("all")) {
-          params.append("platforms", filters.platforms.join(","));
+          params.platforms = filters.platforms.join(",");
         }
-
-        // ✅ Dashboard ALWAYS includes sentiment filter
         if (filters.sentiments && !filters.sentiments.includes("all")) {
-          params.append("sentiments", filters.sentiments.join(","));
+          params.sentiments = filters.sentiments.join(",");
         }
 
-        console.log("Fetching dashboard data:", `http://localhost:8000/social_media/?${params.toString()}`);
-
-        const response = await fetch(
-          `http://localhost:8000/social_media/?${params.toString()}`
-        );
-
-        const result = await response.json();
-        console.log("Dashboard response:", result);
-        setDashboardData(result);
+        const { data } = await api.get("/social_media/", { params });
+        console.log("Dashboard response:", data);
+        setDashboardData(data);
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       } finally {
@@ -127,52 +117,32 @@ function SocialMedia() {
 
   const fetchDrilldown = async (drillKey: string, drillValue: any, drillKey2?: string | null, drillValue2?: string | null, page: number = 1) => {
     try {
-      // ✅ BUILD REQUEST
-      const params = new URLSearchParams();
+      const params: Record<string, string> = {
+        type: "drilldown",
+        drill_key: drillKey,
+        drill_value: drillValue,
+        page: String(page),
+        from_date: filters.fromDate,
+        to_date: filters.toDate,
+      };
 
-      params.append("type", "drilldown");
-      params.append("drill_key", drillKey);
-      params.append("drill_value", drillValue);
-      params.append("page", String(page));
-
-      // ✅ Send secondary drill context (for stacked bar charts)
       if (drillKey2 && drillValue2) {
-        params.append("drill_key2", drillKey2);
-        params.append("drill_value2", drillValue2);
+        params.drill_key2 = drillKey2;
+        params.drill_value2 = drillValue2;
       }
-
-      // ✅ ADD FILTER CONTEXT
-      params.append("from_date", filters.fromDate);
-      params.append("to_date", filters.toDate);
 
       if (filters.countries && !filters.countries.includes("all")) {
-        params.append("countries", filters.countries.join(","));
+        params.countries = filters.countries.join(",");
       }
-
       if (filters.platforms && !filters.platforms.includes("all")) {
-        params.append("platforms", filters.platforms.join(","));
+        params.platforms = filters.platforms.join(",");
+      }
+      if (filters.sentiments && !filters.sentiments.includes("all") && drillKey !== "sentiment") {
+        params.sentiments = filters.sentiments.join(",");
       }
 
-      // ✅ FIXED: DO NOT send sentiment filter if drilling on sentiment
-      if (
-        filters.sentiments && 
-        !filters.sentiments.includes("all") &&
-        drillKey !== "sentiment"
-      ) {
-        params.append("sentiments", filters.sentiments.join(","));
-      }
-
-      const url = `http://localhost:8000/social_media/?${params.toString()}`;
-      console.log("Drilldown API:", url);
-
-      // ✅ FETCH
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      return await response.json();
+      const { data } = await api.get("/social_media/", { params });
+      return data;
     } catch (err) {
       console.error("Drilldown fetch error:", err);
       return null;

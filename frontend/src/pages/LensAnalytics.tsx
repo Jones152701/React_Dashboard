@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../config";
 
 import Header from "../components/header/header";
 import Navbar from "../components/navbar/navbar";
@@ -74,6 +74,7 @@ const LenAnalytics: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<string>("");
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [userLoading, setUserLoading] = useState(false);
 
   /* ================= SVG TREND ARROW ================= */
 
@@ -143,15 +144,16 @@ const LenAnalytics: React.FC = () => {
   /* ================= API CALL ================= */
 
    
+  // 1️⃣ Fetch main dashboard when filters change
   useEffect(() => {
     if (!filters.fromDate || !filters.toDate) return;
 
-    const fetchData = async () => {
+    const fetchMainDashboard = async () => {
       setLoading(true);
 
       try {
-        const response = await axios.get<ApiResponse>(
-          "/LensOverview/LensAnalytics",   // ✅ CHANGED HERE
+        const response = await api.get<ApiResponse>(
+          "/LensOverview/LensAnalytics",
           {
             params: {
               from_date: filters.fromDate,
@@ -173,8 +175,53 @@ const LenAnalytics: React.FC = () => {
       }
     };
 
-    fetchData();
-  }, [filters, selectedUser]);
+    fetchMainDashboard();
+  }, [filters]);
+
+  // 2️⃣ Fetch ONLY user data when selectedUser changes
+  useEffect(() => {
+    if (!selectedUser) {
+      setMessages([]);
+      setCharts(prev => prev.filter(c => c.id !== "user_daily"));
+      return;
+    }
+
+    const fetchUserData = async () => {
+      setUserLoading(true);
+
+      try {
+        const response = await api.get<ApiResponse>(
+          "/LensOverview/LensAnalytics",
+          {
+            params: {
+              from_date: filters.fromDate, // uses closure state to grab current filters
+              to_date: filters.toDate,
+              user: selectedUser,
+            },
+          }
+        );
+
+        const newCharts = response.data?.charts || [];
+        const userChart = newCharts.find(c => c.id === "user_daily");
+        
+        if (userChart) {
+          setCharts(prev => {
+            const baseCharts = prev.filter(c => c.id !== "user_daily");
+            return [...baseCharts, userChart];
+          });
+        }
+        
+        setMessages(response.data?.selected_user_messages || []);
+
+      } catch (error) {
+        console.error("❌ API Error:", error);
+      } finally {
+        setUserLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [selectedUser]);
 
   /* ================= FORMAT HELPERS ================= */
 
@@ -306,7 +353,7 @@ const LenAnalytics: React.FC = () => {
             onUserChange={setSelectedUser}
             userDailyChart={charts.find((chart) => chart.id === "user_daily")}
             messages={messages}
-            loading={loading}
+            loading={userLoading || loading}
           />
         </div>
 

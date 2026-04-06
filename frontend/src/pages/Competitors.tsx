@@ -6,6 +6,7 @@ import SecondaryHeader from "../components/competitors-components/secondary-head
 import CompetitorCard from "../components/competitors-components/competitor-card/CompetitorCard";
 import MatrixCarousel from "../components/competitors-components/matrix-carousel/MatrixCarousel";
 import '../assets/css/Competitors.css'
+import api from "../config";
 
 import favicon from "../assets/images/favicon.ico";
 
@@ -26,6 +27,7 @@ const Competitors: React.FC = () => {
   // const [searchParams, setSearchParams] = useSearchParams();
 
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const [globalTotal, setGlobalTotal] = useState<number>(0);
   const [countries, setCountries] = useState<string[]>([]);
   const [types, setTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,27 +66,21 @@ const Competitors: React.FC = () => {
     setLoading(true);
 
     try {
-      const params = new URLSearchParams();
+      const params: Record<string, string> = {};
 
       if (filters.country !== "all") {
-        params.append("country", filters.country);
+        params.country = filters.country;
       }
-
       if (filters.competitor_type !== "all") {
-        params.append("competitor_type", filters.competitor_type);
+        params.competitor_type = filters.competitor_type;
       }
 
-      const url = `http://localhost:8000/competitors-plan?${params.toString()}`;
-      console.log("API:", url);
-
-      const response = await fetch(url);
-      const data = await response.json();
+      const { data } = await api.get("/competitors-plan", { params });
 
       setCompetitors(data.data.competitors || []);
+      setGlobalTotal(data.data.global_total || data.data.total || 0);
       setCountries(data.filters.countries || []);
       setTypes(data.filters.competitor_types || []);
-      
-      // 🔹 Set matrix slides from API
       setMatrixSlides(data.data.matrix_slides || []);
 
     } catch (err) {
@@ -155,7 +151,7 @@ const Competitors: React.FC = () => {
             <div className="competitors-results-badge">
               <span className="competitors-results-count">{filteredCompetitors.length}</span>
               <span className="competitors-results-label">
-                of {competitors.length} competitors
+                of {globalTotal} competitors
               </span>
             </div>
             
@@ -164,13 +160,16 @@ const Competitors: React.FC = () => {
           {/* ─── Cards Grid ─── */}
           <div className="competitors-grid">
             
-            {/* 🔹 Loading */}
-            {loading && (
-              <div className="competitors-empty-state">
-                <div className="competitors-spinner"></div>
-                <p>Loading competitors...</p>
+            {/* 🔹 Loading Skeletons */}
+            {loading && Array.from({ length: 8 }).map((_, i) => (
+              <div className="competitors-card-col" key={`skeleton-${i}`}>
+                <div className="competitors-skeleton-card">
+                  <div className="skeleton-avatar"></div>
+                  <div className="skeleton-line" style={{ width: "65%" }}></div>
+                  <div className="skeleton-line" style={{ width: "40%", marginTop: "4px" }}></div>
+                </div>
               </div>
-            )}
+            ))}
 
             {/* 🔹 No results */}
             {!loading && filteredCompetitors.length === 0 && (

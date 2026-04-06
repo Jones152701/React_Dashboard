@@ -3,7 +3,7 @@ import "./MatrixCarousel.css";
 
 interface MatrixSlide {
   tier: string;
-  competitor_type?: string;  // "MNO" | "MVNO"
+  competitor_type?: string;  
   html: string;
 }
 

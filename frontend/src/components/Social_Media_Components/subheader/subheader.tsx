@@ -76,39 +76,6 @@ const filterGroupVariants = {
   })
 };
 
-// ── Debounce utility with proper typing ───────────────────────────────────
-
-type DebouncedFunction<T extends (...args: any[]) => any> = {
-  (...args: Parameters<T>): void;
-  cancel: () => void;
-};
-
-function debounce<T extends (...args: any[]) => any>(
-  fn: T,
-  delay: number
-): DebouncedFunction<T> {
-  let timeoutId: ReturnType<typeof setTimeout> | null = null;
-
-  const debounced = (...args: Parameters<T>) => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-    timeoutId = setTimeout(() => {
-      fn(...args);
-      timeoutId = null;
-    }, delay);
-  };
-
-  debounced.cancel = () => {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-      timeoutId = null;
-    }
-  };
-
-  return debounced;
-}
-
 // ── Types ─────────────────────────────────────────────────────────────────
 
 interface Option {
@@ -256,11 +223,8 @@ interface MultiSelectProps {
 const MultiSelect: React.FC<MultiSelectProps> = ({
   id, label, labelIcon, allLabel, allIcon, options, selected, onChange, index,
 }) => {
-  const [local, setLocal] = useState<string[]>(selected);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { setLocal(selected); }, [selected]);
 
   useEffect(() => {
     const fn = (e: MouseEvent) => {
@@ -270,28 +234,25 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
     return () => document.removeEventListener('mousedown', fn);
   }, []);
 
-  const isAll = local.includes('all');
+  const isAll = selected.includes('all');
 
-  const toggleAll = () => setLocal(['all']);
+  const toggleAll = () => onChange(['all']);
 
   const toggleOne = (val: string) => {
-    const without = local.filter(v => v !== 'all');
+    const without = selected.filter(v => v !== 'all');
     if (without.includes(val)) {
       const next = without.filter(v => v !== val);
-      setLocal(next.length === 0 ? ['all'] : next);
+      onChange(next.length === 0 ? ['all'] : next);
     } else {
-      setLocal([...without, val]);
+      onChange([...without, val]);
     }
   };
 
-  const clear = () => setLocal(['all']);
-  const apply = () => { onChange(local); setOpen(false); };
-
   const btnLabel = isAll
     ? allLabel
-    : local.length === 1
-      ? options.find(o => o.value === local[0])?.label ?? allLabel
-      : `${local.length} selected`;
+    : selected.length === 1
+      ? options.find(o => o.value === selected[0])?.label ?? allLabel
+      : `${selected.length} selected`;
 
   return (
     <motion.div
@@ -377,7 +338,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                     className="form-check-input sh-check"
                     type="checkbox"
                     readOnly
-                    checked={local.includes(opt.value)}
+                    checked={selected.includes(opt.value)}
                     id={`${id}_opt_${i}`}
                   />
                   <label className="form-check-label sh-check-label" htmlFor={`${id}_opt_${i}`}>
@@ -386,28 +347,6 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
                   </label>
                 </motion.div>
               ))}
-
-              <hr className="dropdown-divider" />
-              <div className="sh-dropdown-footer">
-                <motion.button
-                  className="sh-btn-clear"
-                  type="button"
-                  onClick={clear}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Clear
-                </motion.button>
-                <motion.button
-                  className="sh-btn-apply"
-                  type="button"
-                  onClick={apply}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  Apply
-                </motion.button>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -449,17 +388,8 @@ const SubHeader: React.FC<SubHeaderProps> = ({
   };
 
   // Create debounced notify function for date changes
-  const debouncedNotify = useRef(
-    debounce((newFrom: string, newTo: string) => {
-      if (newFrom && newTo) {
-        notify({
-          fromDate: newFrom,
-          toDate: newTo,
-          dateRange: 'custom',
-        });
-      }
-    }, 500)
-  ).current;
+  // NOW DISABLED: we explicitly use the 'Apply' button instead
+  // const debouncedNotify = useRef(...).current;
 
 
 
@@ -472,15 +402,6 @@ const SubHeader: React.FC<SubHeaderProps> = ({
 
     setFromDate(newFrom);
     setDateRange('custom');
-
-    // ✅ Only fire when both dates exist
-    if (newFrom && toDate) {
-      notify({
-        fromDate: newFrom,
-        toDate: toDate,
-        dateRange: 'custom',
-      });
-    }
   };
 
 
@@ -492,29 +413,8 @@ const SubHeader: React.FC<SubHeaderProps> = ({
 
     setToDate(newTo);
     setDateRange('custom');
-
-    if (fromDate && newTo) {
-      notify({
-        fromDate: fromDate,
-        toDate: newTo,
-        dateRange: 'custom',
-      });
-    }
   };
-
-  // Handle Enter key for immediate update
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && fromDate && toDate) {
-      // Cancel any pending debounced calls
-      debouncedNotify.cancel();
-      // Trigger immediate update
-      notify({
-        fromDate: fromDate,
-        toDate: toDate,
-        dateRange: 'custom',
-      });
-    }
-  };
+  // Date handlers simplified to update local state only
 
   const handleDateRangeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const range = e.target.value;
@@ -578,12 +478,6 @@ const SubHeader: React.FC<SubHeaderProps> = ({
 
     setFromDate(formattedFromDate);
     setToDate(formattedToDate);
-
-    notify({
-      fromDate: formattedFromDate,
-      toDate: formattedToDate,
-      dateRange: range,
-    });
   };
 
   // Build country options dynamically
@@ -617,7 +511,7 @@ const SubHeader: React.FC<SubHeaderProps> = ({
         allIcon={<i className="fas fa-layer-group" style={{ color: '#7B61FF' }} />}
         options={SENTIMENT_OPTIONS}
         selected={sentiments}
-        onChange={v => { setSentiments(v); notify({ sentiments: v }); }}
+        onChange={v => setSentiments(v)}
         index={idx}
       />
     ),
@@ -631,7 +525,7 @@ const SubHeader: React.FC<SubHeaderProps> = ({
         allLabel="All Countries"
         options={countryOptions}
         selected={selCountries}
-        onChange={v => { setSelCountries(v); notify({ countries: v }); }}
+        onChange={v => setSelCountries(v)}
         index={idx}
       />
     ),
@@ -646,7 +540,7 @@ const SubHeader: React.FC<SubHeaderProps> = ({
         allIcon={<i className="fas fa-th" style={{ color: '#7B61FF' }} />}
         options={platformOptions}
         selected={selPlatforms}
-        onChange={v => { setSelPlatforms(v); notify({ platforms: v }); }}
+        onChange={v => setSelPlatforms(v)}
         index={idx}
       />
     ),
@@ -718,7 +612,6 @@ const SubHeader: React.FC<SubHeaderProps> = ({
           value={fromDate}
           max={toDate}
           onChange={handleFromDateChange}
-          onKeyDown={handleKeyDown}
           variants={controlVariants}
           initial="hidden"
           animate="visible"
@@ -755,7 +648,6 @@ const SubHeader: React.FC<SubHeaderProps> = ({
           value={toDate}
           min={fromDate}
           onChange={handleToDateChange}
-          onKeyDown={handleKeyDown}
           variants={controlVariants}
           initial="hidden"
           animate="visible"
@@ -764,6 +656,41 @@ const SubHeader: React.FC<SubHeaderProps> = ({
         />
       </motion.div>
     ),
+    // Apply Button
+    (idx: number) => (
+      <motion.div
+        key="apply-dates"
+        className="filter-group"
+        custom={idx}
+        initial="hidden"
+        animate="visible"
+        variants={filterGroupVariants}
+        whileHover="hover"
+      >
+        <label className="filter-label" style={{ opacity: 0 }}>
+          <span>&nbsp;</span>
+        </label>
+        <motion.button
+          className="sh-btn-apply"
+          style={{
+            height: "38px",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: "100px",
+            marginTop: "0"
+          }}
+          onClick={() => notify()}
+          variants={controlVariants}
+          initial="hidden"
+          animate="visible"
+          whileTap="tap"
+          transition={{ delay: idx * 0.05 + 0.15 }}
+        >
+          Apply
+        </motion.button>
+      </motion.div>
+    )
   ];
 
   return (

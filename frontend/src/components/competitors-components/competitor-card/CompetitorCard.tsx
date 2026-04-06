@@ -58,18 +58,21 @@ const CompetitorCard: React.FC<CompetitorCardProps> = ({
       {/* 🔹 Name */}
       <div className="competitor-name">{name}</div>
 
-      {/* 🔹 Type */}
-      <div className={`competitor-type ${type.toLowerCase()}`}>
-        {type.toUpperCase()}
-      </div>
-
-      {/* 🔹 Country with Flag */}
-      {country && (
-        <div className="competitor-country">
-          <CountryFlag country={country} width={20} height={15} />
-          <span>{country}</span>
+      {/* 🔹 Badges container for perfect alignment */}
+      <div className="competitor-badges">
+        {/* 🔹 Type */}
+        <div className={`competitor-type ${type.toLowerCase()}`}>
+          {type.toUpperCase()}
         </div>
-      )}
+
+        {/* 🔹 Country with Flag */}
+        {country && (
+          <div className="competitor-country">
+            <CountryFlag country={country} width={20} height={15} />
+            <span>{country}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

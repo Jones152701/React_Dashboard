@@ -344,11 +344,14 @@ const UserActivity: React.FC<UserActivityProps> = ({
 
                                 {/* CONTENT - Using AnimatedList */}
                                 {loading ? (
-                                    <div className="text-center py-5 flex-grow-1 d-flex flex-column justify-content-center">
-                                        <div className="spinner-border text-primary" role="status">
-                                            <span className="visually-hidden">Loading...</span>
-                                        </div>
-                                        <p className="mt-2 text-muted">Loading messages...</p>
+                                    <div className="d-flex flex-column px-2 py-3 w-100 h-100 placeholder-glow" style={{ gap: "24px", overflow: "hidden" }}>
+                                        {[1, 2, 3, 4, 5].map((i) => (
+                                            <div key={`msg-skel-${i}`} className="w-100 d-flex flex-column" style={{ gap: "8px" }}>
+                                                <span className="placeholder col-4 rounded-pill" style={{ height: "14px", backgroundColor: "#cbd5e1" }}></span>
+                                                <span className="placeholder col-11 rounded" style={{ height: "16px", backgroundColor: "#e2e8f0" }}></span>
+                                                <span className="placeholder col-8 rounded" style={{ height: "16px", backgroundColor: "#e2e8f0" }}></span>
+                                            </div>
+                                        ))}
                                     </div>
                                 ) : (
                                     <div style={{ height: "100%", overflow: "hidden", flex: 1, minHeight: 0 }}>
