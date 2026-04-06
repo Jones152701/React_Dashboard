@@ -65,7 +65,7 @@ function App() {
 
       </Routes>
 
-      {/* ✅ ADD THIS (GLOBAL TOASTER) */}
+      
       <ToastContainer
         position="top-right"
         autoClose={3000}

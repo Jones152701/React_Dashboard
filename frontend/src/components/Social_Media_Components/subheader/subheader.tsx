@@ -88,7 +88,7 @@ function debounce<T extends (...args: any[]) => any>(
   delay: number
 ): DebouncedFunction<T> {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
-  
+
   const debounced = (...args: Parameters<T>) => {
     if (timeoutId) {
       clearTimeout(timeoutId);
@@ -98,14 +98,14 @@ function debounce<T extends (...args: any[]) => any>(
       timeoutId = null;
     }, delay);
   };
-  
+
   debounced.cancel = () => {
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;
     }
   };
-  
+
   return debounced;
 }
 
@@ -119,19 +119,19 @@ interface Option {
 
 export interface FilterState {
   sentiments: string[];
-  countries:  string[];
-  platforms:  string[];
-  dateRange:  string;
-  fromDate:   string;
-  toDate:     string;
+  countries: string[];
+  platforms: string[];
+  dateRange: string;
+  fromDate: string;
+  toDate: string;
 }
 
 interface SubHeaderProps {
-  title?:           string;
-  countries?:       string[];
-  platforms?:       string[];
+  title?: string;
+  countries?: string[];
+  platforms?: string[];
   initialFromDate?: string;
-  initialToDate?:   string;
+  initialToDate?: string;
   onFiltersChange?: (filters: FilterState) => void;
 }
 
@@ -141,29 +141,29 @@ const SENTIMENT_OPTIONS: Option[] = [
   {
     value: 'positive',
     label: 'Positive',
-    icon:  <i className="fas fa-smile" style={{ color: '#22c55e', fontSize: '1rem' }} />,
+    icon: <i className="fas fa-smile" style={{ color: '#22c55e', fontSize: '1rem' }} />,
   },
   {
     value: 'neutral',
     label: 'Neutral',
-    icon:  <i className="fas fa-meh" style={{ color: '#94a3b8', fontSize: '1rem' }} />,
+    icon: <i className="fas fa-meh" style={{ color: '#94a3b8', fontSize: '1rem' }} />,
   },
   {
     value: 'negative',
     label: 'Negative',
-    icon:  <i className="fas fa-frown" style={{ color: '#ef4444', fontSize: '1rem' }} />,
+    icon: <i className="fas fa-frown" style={{ color: '#ef4444', fontSize: '1rem' }} />,
   },
 ];
 
 // ── Date range options ────────────────────────────────────────────────────
 
 const DATE_RANGE_OPTIONS = [
-  { value: 'last_7',     label: 'Last 7 Days'  },
-  { value: 'today',      label: 'Today'        },
-  { value: 'yesterday',  label: 'Yesterday'    },
-  { value: 'last_30',    label: 'Last 30 Days' },
-  { value: 'this_week',  label: 'This Week'    },
-  { value: 'this_month', label: 'This Month'   },
+  { value: 'last_7', label: 'Last 7 Days' },
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'last_30', label: 'Last 30 Days' },
+  { value: 'this_week', label: 'This Week' },
+  { value: 'this_month', label: 'This Month' },
 ];
 
 // ── Country → ISO flag code ───────────────────────────────────────────────
@@ -197,22 +197,22 @@ const getCountryFlag = (country: string): React.ReactNode => {
 // ── Platform → Font Awesome icon ─────────────────────────────────────────
 
 const getPlatformIcon = (p: string): React.ReactNode => {
-  if (/reddit/i.test(p))      return <i className="fab fa-reddit-alien"  style={{ color: '#FF4500', fontSize: '1rem' }} />;
-  if (/youtube/i.test(p))     return <i className="fab fa-youtube"       style={{ color: '#FF0000', fontSize: '1rem' }} />;
-  if (/google/i.test(p))      return <i className="fab fa-google"        style={{ color: '#4285F4', fontSize: '1rem' }} />;
-  if (/amazon/i.test(p))      return <i className="fab fa-amazon"        style={{ color: '#FF9900', fontSize: '1rem' }} />;
-  if (/quora/i.test(p))       return <i className="fab fa-quora"         style={{ color: '#B92B27', fontSize: '1rem' }} />;
-  if (/facebook|^fb$/i.test(p)) return <i className="fab fa-facebook"   style={{ color: '#1877F2', fontSize: '1rem' }} />;
-  if (/twitter|^x$/i.test(p)) return <i className="fab fa-twitter"      style={{ color: '#1DA1F2', fontSize: '1rem' }} />;
-  if (/instagram/i.test(p))   return <i className="fab fa-instagram"     style={{ color: '#E4405F', fontSize: '1rem' }} />;
-  if (/linkedin/i.test(p))    return <i className="fab fa-linkedin"      style={{ color: '#0A66C2', fontSize: '1rem' }} />;
-  if (/pinterest/i.test(p))   return <i className="fab fa-pinterest"     style={{ color: '#BD081C', fontSize: '1rem' }} />;
-  if (/tiktok/i.test(p))      return <i className="fab fa-tiktok"        style={{ color: '#010101', fontSize: '1rem' }} />;
-  if (/snapchat/i.test(p))    return <i className="fab fa-snapchat"      style={{ color: '#FFCC00', fontSize: '1rem' }} />;
-  if (/whatsapp/i.test(p))    return <i className="fab fa-whatsapp"      style={{ color: '#25D366', fontSize: '1rem' }} />;
-  if (/telegram/i.test(p))    return <i className="fab fa-telegram"      style={{ color: '#26A5E4', fontSize: '1rem' }} />;
-  if (/discord/i.test(p))     return <i className="fab fa-discord"       style={{ color: '#5865F2', fontSize: '1rem' }} />;
-  if (/trustpilot/i.test(p))  return <i className="fas fa-star"          style={{ color: '#00B67A', fontSize: '1rem' }} />;
+  if (/reddit/i.test(p)) return <i className="fab fa-reddit-alien" style={{ color: '#FF4500', fontSize: '1rem' }} />;
+  if (/youtube/i.test(p)) return <i className="fab fa-youtube" style={{ color: '#FF0000', fontSize: '1rem' }} />;
+  if (/google/i.test(p)) return <i className="fab fa-google" style={{ color: '#4285F4', fontSize: '1rem' }} />;
+  if (/amazon/i.test(p)) return <i className="fab fa-amazon" style={{ color: '#FF9900', fontSize: '1rem' }} />;
+  if (/quora/i.test(p)) return <i className="fab fa-quora" style={{ color: '#B92B27', fontSize: '1rem' }} />;
+  if (/facebook|^fb$/i.test(p)) return <i className="fab fa-facebook" style={{ color: '#1877F2', fontSize: '1rem' }} />;
+  if (/twitter|^x$/i.test(p)) return <i className="fab fa-twitter" style={{ color: '#1DA1F2', fontSize: '1rem' }} />;
+  if (/instagram/i.test(p)) return <i className="fab fa-instagram" style={{ color: '#E4405F', fontSize: '1rem' }} />;
+  if (/linkedin/i.test(p)) return <i className="fab fa-linkedin" style={{ color: '#0A66C2', fontSize: '1rem' }} />;
+  if (/pinterest/i.test(p)) return <i className="fab fa-pinterest" style={{ color: '#BD081C', fontSize: '1rem' }} />;
+  if (/tiktok/i.test(p)) return <i className="fab fa-tiktok" style={{ color: '#010101', fontSize: '1rem' }} />;
+  if (/snapchat/i.test(p)) return <i className="fab fa-snapchat" style={{ color: '#FFCC00', fontSize: '1rem' }} />;
+  if (/whatsapp/i.test(p)) return <i className="fab fa-whatsapp" style={{ color: '#25D366', fontSize: '1rem' }} />;
+  if (/telegram/i.test(p)) return <i className="fab fa-telegram" style={{ color: '#26A5E4', fontSize: '1rem' }} />;
+  if (/discord/i.test(p)) return <i className="fab fa-discord" style={{ color: '#5865F2', fontSize: '1rem' }} />;
+  if (/trustpilot/i.test(p)) return <i className="fas fa-star" style={{ color: '#00B67A', fontSize: '1rem' }} />;
   return <i className="fas fa-comment" style={{ color: '#6c757d', fontSize: '1rem' }} />;
 };
 
@@ -242,22 +242,22 @@ const formatDate = (date: Date): string => {
 // ── MultiSelect dropdown ──────────────────────────────────────────────────
 
 interface MultiSelectProps {
-  id:        string;
-  label:     string;
+  id: string;
+  label: string;
   labelIcon: React.ReactNode;
-  allLabel:  string;
-  allIcon?:  React.ReactNode;
-  options:   Option[];
-  selected:  string[];
-  onChange:  (vals: string[]) => void;
-  index:     number; // Make index required
+  allLabel: string;
+  allIcon?: React.ReactNode;
+  options: Option[];
+  selected: string[];
+  onChange: (vals: string[]) => void;
+  index: number; // Make index required
 }
 
 const MultiSelect: React.FC<MultiSelectProps> = ({
   id, label, labelIcon, allLabel, allIcon, options, selected, onChange, index,
 }) => {
   const [local, setLocal] = useState<string[]>(selected);
-  const [open,  setOpen]  = useState(false);
+  const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setLocal(selected); }, [selected]);
@@ -294,8 +294,8 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
       : `${local.length} selected`;
 
   return (
-    <motion.div 
-      className="filter-group" 
+    <motion.div
+      className="filter-group"
       ref={ref}
       custom={index}
       initial="hidden"
@@ -389,18 +389,18 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
 
               <hr className="dropdown-divider" />
               <div className="sh-dropdown-footer">
-                <motion.button 
-                  className="sh-btn-clear" 
-                  type="button" 
+                <motion.button
+                  className="sh-btn-clear"
+                  type="button"
                   onClick={clear}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   Clear
                 </motion.button>
-                <motion.button 
-                  className="sh-btn-apply" 
-                  type="button" 
+                <motion.button
+                  className="sh-btn-apply"
+                  type="button"
                   onClick={apply}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
@@ -419,11 +419,11 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
 // ── Main SubHeader ────────────────────────────────────────────────────────
 
 const SubHeader: React.FC<SubHeaderProps> = ({
-  title           = 'Social Media Analytics',
-  countries       = ['Belgium', 'France', 'Germany', 'Italy', 'Netherlands', 'Portugal', 'Uganda', 'UK'],
-  platforms       = ['Facebook', 'Instagram', 'LinkedIn', 'TikTok', 'trustpilot', 'twitter'],
+  title = 'Social Media Analytics',
+  countries = ['Belgium', 'France', 'Germany', 'Italy', 'Netherlands', 'Portugal', 'Uganda', 'UK'],
+  platforms = ['Facebook', 'Instagram', 'LinkedIn', 'TikTok', 'trustpilot', 'twitter'],
   initialFromDate = daysAgoISO(6),
-  initialToDate   = todayISO(),
+  initialToDate = todayISO(),
   onFiltersChange,
 }) => {
   const [sentiments, setSentiments] = useState<string[]>(['all']);
@@ -461,24 +461,44 @@ const SubHeader: React.FC<SubHeaderProps> = ({
     }, 500)
   ).current;
 
-  // Handle date changes with debounce
+
+
+
   const handleFromDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFrom = e.target.value;
+
+    // ❌ Ignore if same value (month navigation)
+    if (newFrom === fromDate) return;
+
     setFromDate(newFrom);
     setDateRange('custom');
 
+    // ✅ Only fire when both dates exist
     if (newFrom && toDate) {
-      debouncedNotify(newFrom, toDate);
+      notify({
+        fromDate: newFrom,
+        toDate: toDate,
+        dateRange: 'custom',
+      });
     }
   };
 
+
   const handleToDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTo = e.target.value;
+
+    // ❌ Ignore if same value
+    if (newTo === toDate) return;
+
     setToDate(newTo);
     setDateRange('custom');
 
     if (fromDate && newTo) {
-      debouncedNotify(fromDate, newTo);
+      notify({
+        fromDate: fromDate,
+        toDate: newTo,
+        dateRange: 'custom',
+      });
     }
   };
 
@@ -632,7 +652,7 @@ const SubHeader: React.FC<SubHeaderProps> = ({
     ),
     // Date Range Select
     (idx: number) => (
-      <motion.div 
+      <motion.div
         key="date-range"
         className="filter-group"
         custom={idx}
@@ -672,7 +692,7 @@ const SubHeader: React.FC<SubHeaderProps> = ({
     ),
     // From Date Input
     (idx: number) => (
-      <motion.div 
+      <motion.div
         key="from-date"
         className="filter-group"
         custom={idx}
@@ -709,7 +729,7 @@ const SubHeader: React.FC<SubHeaderProps> = ({
     ),
     // To Date Input
     (idx: number) => (
-      <motion.div 
+      <motion.div
         key="to-date"
         className="filter-group"
         custom={idx}
@@ -752,7 +772,7 @@ const SubHeader: React.FC<SubHeaderProps> = ({
         <div className="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">
 
           {/* Title */}
-          <motion.h1 
+          <motion.h1
             className="sh-page-title h4 "
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}

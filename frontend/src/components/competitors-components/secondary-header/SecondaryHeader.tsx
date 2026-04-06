@@ -1,6 +1,6 @@
 import React from "react";
 import "./SecondaryHeader.css";
-import CountryFlag from "../../country-flag/CountryFlag";
+import CountryFlag from "../country-flag/CountryFlag";
 
 interface FiltersState {
   country: string;

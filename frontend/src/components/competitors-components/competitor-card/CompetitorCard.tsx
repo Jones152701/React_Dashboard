@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import "./CompetitorCard..css";
-import CountryFlag from "../../country-flag/CountryFlag";
+import CountryFlag from "../country-flag/CountryFlag";
 
 interface CompetitorCardProps {
   name: string;

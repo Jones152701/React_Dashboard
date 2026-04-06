@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getFlagUrl, getCountryInitials } from "../../utils/countryFlags";
+import { getFlagUrl, getCountryInitials } from "../../../types/countryFlags";
 import "./CountryFlag.css";
 
 interface CountryFlagProps {

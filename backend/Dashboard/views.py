@@ -1,30 +1,26 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db import connection
-import math
-import re
-from collections import Counter
 from datetime import datetime, timedelta
 from .chart_builder import build_chart
 from .word_cloud import  generate_wordcloud
 import markdown
 import logging
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, BasePermission
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
+from collections import Counter
+import math
+
+
 
 logger = logging.getLogger(__name__)
 
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes
-
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-
-from rest_framework.permissions import IsAuthenticated, BasePermission
-
-class IsAdminUserGroup(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.groups.filter(name="admin_user").exists()
+# class IsAdminUserGroup(BasePermission):
+#     def has_permission(self, request, view):
+#         return request.user.groups.filter(name="admin_user").exists()
 
 
 class CookieTokenObtainPairView(TokenObtainPairView):
@@ -40,7 +36,7 @@ class CookieTokenObtainPairView(TokenObtainPairView):
                 key="access_token",
                 value=access,
                 httponly=True,
-                secure=True,  # 🔒 True in production (HTTPS)
+                secure=True, 
                 samesite="None"
             )
 
@@ -72,23 +68,19 @@ def logout_view(request):
     return response
 
 
-class IsAdminUserGroup(BasePermission):
-    def has_permission(self, request, view):
-        return request.user.groups.filter(name="admin_user").exists()
 
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def user_info(request):
-    groups = list(request.user.groups.values_list("name", flat=True))
-    return Response({
-        "username": request.user.username,
-        "groups": groups
-    })
+# @api_view(["GET"])
+# @permission_classes([IsAuthenticated])
+# def user_info(request):
+#     groups = list(request.user.groups.values_list("name", flat=True))
+#     return Response({
+#         "username": request.user.username,
+#         "groups": groups
+#     })
 
 class LensAnalyticsView(APIView):
     
-    permission_classes = [IsAuthenticated, IsAdminUserGroup]
+    # permission_classes = [IsAuthenticated, IsAdminUserGroup]
 
     # ================= MAIN API =================
     def get(self, request):
@@ -389,13 +381,12 @@ class LensAnalyticsView(APIView):
 
         # 📊 Top Users Chart
         if top_users_data:
-            # ✅ FIXED: Use y_key instead of y_label
             top_users_chart = build_chart(
                 chart_id="top_users",
                 chart_type="bar",
                 data=top_users_data,
                 x_key="name",
-                y_key="value",  # ✅ FIXED
+                y_key="value",  
                 title="Top 20 Users",
                 tooltip="Users who used Lens",
                 icon="bi-bar-chart-fill",
@@ -403,21 +394,23 @@ class LensAnalyticsView(APIView):
                 color="#7B61FF",
                 margin={"top": 25, "right": 10, "left": 30, "bottom": 30},
                 x_label_offset=-19,
-                y_label_offset=-10
+                y_label_offset=-10,
+                x_label="dates",
+                y_label="Values"
             )
         else:
             top_users_chart = None
             print("⚠️ No top users data available")
 
-        # 📈 Daily Trend Chart
+        
         if daily_data:
             # ✅ FIXED: Use y_key and area chart type
             daily_count_chart = build_chart(
                 chart_id="daily_count",
-                chart_type="area",  # ✅ NOW VALID
+                chart_type="area", 
                 data=daily_data,
                 x_key="date",
-                y_key="value",  # ✅ FIXED
+                y_key="value",  
                 title="Daily Usage Trend",
                 tooltip="Messages per day",
                 icon="bi-graph-up",
@@ -425,7 +418,7 @@ class LensAnalyticsView(APIView):
                 margin={"top": 25, "right": 10, "left": 30, "bottom": 30},
                 x_label_offset=-19,
                 y_label_offset=-15,
-                is_date=True  # ✅ IMPORTANT
+                is_date=True  
             )
         else:
             daily_count_chart = None
@@ -464,7 +457,7 @@ class LensAnalyticsView(APIView):
 
 
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 def run_query(query, params):
     """Execute a SQL query in its own DB connection (thread-safe)."""
@@ -477,13 +470,7 @@ def run_query(query, params):
 class SocialMediaDailyView(APIView):
 
     def get(self, request):
-        import re
-        from collections import Counter
-        from datetime import datetime, timedelta
-        import math
-        from django.db import connection
-        from rest_framework.response import Response
-        from rest_framework.views import APIView
+        
 
         table = "lens_src.lyca_social_media_reviews"
 
@@ -833,7 +820,7 @@ class SocialMediaDailyView(APIView):
                             import traceback
                             traceback.print_exc()
                     
-                    # ✅ Apply SECONDARY drill filter (for stacked bar: x-axis context)
+                  
                     if drill_key2 and drill_value2:
                         db_column2, col_type2 = COLUMN_MAP.get(drill_key2, (drill_key2, "string"))
                         
@@ -951,7 +938,7 @@ class SocialMediaDailyView(APIView):
                     """
                     queries['text'] = (text_query, drill_params)
                     
-                    # 7. REVIEWS LIST (PAGINATED)
+                    # 7. REVIEWS LIST 
                     review_query = f"""
                         SELECT 
                             username,
@@ -979,7 +966,7 @@ class SocialMediaDailyView(APIView):
                     """
                     queries['count'] = (count_query, drill_params)
                     
-                    # =============== EXECUTE QUERIES IN PARALLEL ===============
+                    # =============== EXECUTE QUERIES ===============
                     results = {}
                     with ThreadPoolExecutor(max_workers=8) as executor:
                         future_to_name = {

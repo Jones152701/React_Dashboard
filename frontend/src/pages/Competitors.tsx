@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getCompetitorLogo } from "../utils/getCompetitorLogo";
+import { getCompetitorLogo } from "../types/getCompetitorLogo";
 import Header from "../components/header/header";
 import Navbar from "../components/navbar/navbar";
 import SecondaryHeader from "../components/competitors-components/secondary-header/SecondaryHeader";
