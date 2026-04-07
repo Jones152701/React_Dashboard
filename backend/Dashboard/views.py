@@ -16,7 +16,6 @@ import math
 
 
 
-
 logger = logging.getLogger(__name__)
 
 # class IsAdminUserGroup(BasePermission):
@@ -457,31 +456,98 @@ class LensAnalyticsView(APIView):
         })
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.db import connection
-from datetime import datetime, timedelta
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
-def run_query(query, params):
-    from django.db import connections
-    conn = connections['default']
-    with conn.cursor() as cursor:
-        cursor.execute(query, params)
-        return cursor.fetchall()
+
+
+def fix_markdown_tables(text: str) -> str:
+    """
+    Fix malformed markdown tables by ensuring proper formatting.
+    
+    This function:
+    1. Detects table rows (lines containing |)
+    2. Ensures proper spacing around pipes
+    3. Fixes separator rows (|---|)
+    4. Handles inconsistent column counts
+    """
+    if not text or "|" not in text:
+        return text
+    
+    lines = text.split("\n")
+    fixed_lines = []
+    i = 0
+    
+    while i < len(lines):
+        line = lines[i]
+        
+        if "|" in line:
+            # Split by pipe and clean up
+            cols = [c.strip() for c in line.split("|")]
+            # Remove empty first/last elements from leading/trailing pipes
+            if cols and cols[0] == '':
+                cols = cols[1:]
+            if cols and cols[-1] == '':
+                cols = cols[:-1]
+            
+            # Check if this is a header row (next line is a separator)
+            if i + 1 < len(lines) and "|" in lines[i + 1]:
+                next_line = lines[i + 1]
+                # Check if next line is a separator (contains only |, -, :, spaces)
+                next_clean = next_line.replace("|", "").replace("-", "").replace(":", "").replace(" ", "")
+                if not next_clean:  # It's a separator row
+                    # Fix separator row
+                    fixed_sep_parts = []
+                    for col in cols:
+                        # Check if alignment is specified in original separator
+                        orig_sep_parts = [p.strip() for p in next_line.split("|") if p.strip()]
+                        if len(orig_sep_parts) > len(fixed_sep_parts):
+                            orig_sep = orig_sep_parts[len(fixed_sep_parts)]
+                            if orig_sep.startswith(":") and orig_sep.endswith(":"):
+                                fixed_sep_parts.append(":---:")
+                            elif orig_sep.startswith(":"):
+                                fixed_sep_parts.append(":---")
+                            elif orig_sep.endswith(":"):
+                                fixed_sep_parts.append("---:")
+                            else:
+                                fixed_sep_parts.append("---")
+                        else:
+                            fixed_sep_parts.append("---")
+                    
+                    fixed_lines.append("| " + " | ".join(cols) + " |")
+                    fixed_lines.append("| " + " | ".join(fixed_sep_parts) + " |")
+                    i += 2  # Skip both header and separator rows
+                    continue
+            
+            # Regular table row
+            fixed_lines.append("| " + " | ".join(cols) + " |")
+        else:
+            fixed_lines.append(line)
+        
+        i += 1
+    
+    return "\n".join(fixed_lines)
 
 
 class LensFeedbackView(APIView):
 
     def get(self, request):
 
+        # ✅ Initialize Markdown instance with extensions
+        md = markdown.Markdown(extensions=[
+            'extra',
+            'codehilite',
+            'tables',
+            'toc',
+            'nl2br',
+            'sane_lists',
+        ])
+
         table = "lens_src.prod_lens_feedback_table"
 
         # ===================== FILTERS =====================
         from_date = request.GET.get("from_date")
         to_date = request.GET.get("to_date")
-        selected_user = request.GET.get("user")  # May be None initially
+        selected_user = request.GET.get("user")
 
         # Default: last 30 days
         if not from_date or not to_date:
@@ -521,7 +587,7 @@ class LensFeedbackView(APIView):
                 ORDER BY user_name
             """
 
-            # 3️⃣ Users list (dropdown) - MUST run first
+            # 3️⃣ Users list (dropdown)
             users_query = f"""
                 SELECT DISTINCT user_name
                 FROM {table}
@@ -533,7 +599,7 @@ class LensFeedbackView(APIView):
                 ORDER BY user_name
             """
 
-            # 4️⃣ Selected user breakdown (will be added after default user is set)
+            # 4️⃣ Selected user breakdown
             user_detail_query = f"""
                 SELECT 
                     SUM(CASE WHEN LOWER(feedback_type) = 'like' THEN 1 ELSE 0 END) as like_count,
@@ -543,9 +609,9 @@ class LensFeedbackView(APIView):
                 AND user_name = %s
             """
 
-            # 5️⃣ Feedback comments (will be added after default user is set)
+            # 5️⃣ Feedback comments with ALL fields
             comments_query = f"""
-                SELECT user_question, created_at, feedback_type
+                SELECT user_name, user_question, bot_response, feedback_comment, created_at, feedback_type
                 FROM {table}
                 WHERE created_at >= %s 
                 AND created_at < %s
@@ -554,7 +620,7 @@ class LensFeedbackView(APIView):
                 ORDER BY created_at DESC
             """
 
-            # ===================== STEP 1: RUN BASE QUERIES FIRST =====================
+            # ===================== STEP 1: RUN BASE QUERIES =====================
             base_queries = {
                 "total_feedback": (total_feedback_query, [from_date, to_date]),
                 "user_feedback": (user_feedback_query, [from_date, to_date]),
@@ -579,12 +645,11 @@ class LensFeedbackView(APIView):
             # ===================== STEP 2: SET DEFAULT USER =====================
             users = [row[0] for row in base_results.get("users", []) if row[0]]
             
-            # ✅ Auto-select first user if no user provided
             if not selected_user and users:
                 selected_user = users[0]
                 print(f"🎯 Auto-selected default user: {selected_user}")
 
-            # ===================== STEP 3: RUN USER-SPECIFIC QUERIES (if user exists) =====================
+            # ===================== STEP 3: RUN USER-SPECIFIC QUERIES =====================
             user_results = {}
             if selected_user:
                 print(f"📊 Fetching data for user: {selected_user}")
@@ -619,7 +684,6 @@ class LensFeedbackView(APIView):
                 for row in base_results.get("total_feedback", [])
             ]
 
-            # Ensure all categories exist
             feedback_map = {item["type"]: item["count"] for item in total_feedback_data}
             for key in ["like", "dislike", "no_response"]:
                 if key not in feedback_map:
@@ -635,14 +699,13 @@ class LensFeedbackView(APIView):
                 for row in base_results.get("user_feedback", [])
             ]
 
-            # Optional: limit users (top N)
             user_feedback_data = sorted(
                 user_feedback_data,
                 key=lambda x: (x["like"] + x["dislike"]),
                 reverse=True
             )[:15]
 
-            # 🔹 User detail chart (pie chart for selected user)
+            # 🔹 User detail chart
             user_detail_chart = None
             if selected_user and user_results.get("user_detail") and user_results["user_detail"]:
                 row = user_results["user_detail"][0]
@@ -669,24 +732,35 @@ class LensFeedbackView(APIView):
                     y_label="Count"
                 )
 
-            # 🔹 Comments (for selected user) - ✅ FIXED: Added feedback_type mapping
+            # 🔹 Comments with Markdown conversion for bot_response
             comments = []
             if selected_user and user_results.get("comments"):
-                comments = [
-                    {
-                        "comment": row[0] if row[0] else "No comment",
-                        "date": row[1].strftime("%Y-%m-%d %H:%M:%S") if row[1] else None,
-                        "type": (row[2] or "").lower(),  # ✅ CRITICAL FIX: Map feedback_type
-                        "date_raw": row[1]
-                    }
-                    for row in user_results["comments"]
-                ]
+                for row in user_results["comments"]:
+                    
+                    # Get raw bot response
+                    bot_response_raw = row[2] if row[2] else "No bot response"
+                    
+                    # ✅ FIX TABLE FORMAT - Sanitize malformed tables
+                    bot_response_fixed = fix_markdown_tables(bot_response_raw)
+                    
+                    # ✅ Convert markdown to HTML
+                    md.reset()  # Reset markdown instance for each conversion
+                    bot_response_html = md.convert(bot_response_fixed)
+                    
+                    comments.append({
+                        "user": row[0],  # user_name
+                        "comment": row[1] if row[1] else "No question provided",  # user_question
+                        "bot_response": bot_response_raw,  # Keep raw markdown (optional)
+                        "bot_response_html": bot_response_html,  # ✅ HTML version for rendering
+                        "feedback_comment": row[3] if row[3] else "No feedback comment",  # feedback_comment
+                        "date": row[4].strftime("%Y-%m-%d %H:%M:%S") if row[4] else None,
+                        "type": (row[5] or "").lower(),
+                    })
 
             # ===================== STEP 5: BUILD CHARTS =====================
 
             charts = []
 
-            # 1️⃣ Total Feedback Breakdown → BAR
             if total_feedback_data:
                 charts.append(build_chart(
                     chart_id="total_feedback_breakdown",
@@ -708,7 +782,6 @@ class LensFeedbackView(APIView):
                     y_label="Count"
                 ))
 
-            # 2️⃣ User Feedback Breakdown → STACKED BAR
             if user_feedback_data:
                 charts.append(build_chart(
                     chart_id="user_feedback_breakdown",
@@ -729,7 +802,6 @@ class LensFeedbackView(APIView):
                     y_label="Count"
                 ))
 
-            # 3️⃣ Add user detail chart (always present since we auto-select user)
             if user_detail_chart:
                 charts.append(user_detail_chart)
 
@@ -739,16 +811,16 @@ class LensFeedbackView(APIView):
             print(f"Users Available: {len(users)}")
             print(f"Selected User: {selected_user if selected_user else 'None'}")
             print(f"Comments Retrieved: {len(comments)}")
-            print(f"Comments with types: {[(c['type'], c['comment'][:30]) for c in comments[:3]]}")  # Debug log
+            if comments:
+                print(f"Sample bot_response_html length: {len(comments[0].get('bot_response_html', ''))}")
             print(f"Charts Built: {len(charts)}")
             print("=================================\n")
 
-            # ===================== RESPONSE =====================
             return Response({
                 "charts": charts,
-                "users": users,              # ✅ For dropdown
-                "comments": comments,        # ✅ For messages section (now includes type!)
-                "selected_user": selected_user  # ✅ Echo back to frontend
+                "users": users,
+                "comments": comments,
+                "selected_user": selected_user
             })
 
         except Exception as e:
@@ -763,6 +835,18 @@ class LensFeedbackView(APIView):
                 },
                 status=500
             )
+
+
+
+def run_query(query, params):
+    """Execute a SQL query in its own DB connection (thread-safe)."""
+    from django.db import connections
+    conn = connections['default']
+    with conn.cursor() as cursor:
+        cursor.execute(query, params)
+        return cursor.fetchall()
+
+
 
 class SocialMediaDailyView(APIView):
 
@@ -2212,6 +2296,9 @@ class SocialMediaDailyView(APIView):
 
 
 
+
+
+
 class CompetitorsView(APIView):
     """
     API View to fetch competitors data with filters for country and competitor type.
@@ -2286,12 +2373,6 @@ class CompetitorsView(APIView):
                 SELECT DISTINCT competitor_type
                 FROM {table}
                 ORDER BY competitor_type
-            """
-
-            # 🔹 GLOBAL TOTAL (Without Filters)
-            global_total_query = f"""
-                SELECT COUNT(DISTINCT name)
-                FROM {table}
             """
 
             with connection.cursor() as cursor:
@@ -2379,10 +2460,6 @@ class CompetitorsView(APIView):
                 cursor.execute(type_query)
                 competitor_types = [row[0] for row in cursor.fetchall()]
 
-                # 🔹 global total
-                cursor.execute(global_total_query)
-                global_total = cursor.fetchone()[0] or 0
-
             # ===============================
             # 🔹 RESPONSE
             # ===============================
@@ -2393,7 +2470,6 @@ class CompetitorsView(APIView):
                 },
                 "data": {
                     "total": len(competitors),
-                    "global_total": global_total,
                     "competitors": competitors,
                     "matrix_slides": matrix_slides  # ✅ Array of {tier, html}
                 }
