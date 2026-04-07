@@ -11,7 +11,6 @@ import ChartRenderer from "../components/ChartRender";
 
 import favicon from "../assets/images/favicon.ico";
 import "../assets/css/LensFeedback.css";
-import '../assets/css/LensFeedback.css'
 
 /* ================= TYPES ================= */
 
@@ -254,70 +253,80 @@ const LensFeedback: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* ================= ROW 2: DROPDOWN + PIE + MESSAGES ================= */}
-                    <div className="row">
-
-                        {/* LEFT COLUMN: Dropdown + Pie Chart */}
-                        <div className="col-md-6">
-
-                            {/* User Dropdown */}
-                            <div className="mb-4">
-                                <label className="form-label fw-semibold">
-                                    <i className="bi bi-person me-2"></i>
-                                    User Activity
-                                </label>
-
-                                <select
-                                    className="form-select"
-                                    value={selectedUser}
-                                    onChange={handleUserChange}
-                                    style={{ maxWidth: "300px" }}
-                                >
-                                    {users.map((user) => (
-                                        <option key={user} value={user}>
-                                            👤 {user}
-                                        </option>
-                                    ))}
-                                </select>
-
-                            </div>
-
-                            {/* Pie Chart (always visible when user selected) */}
-                            {selectedUser && (
-                                <>
-                                    {loading && otherCharts.length === 0 ? (
-                                        <ChartCard
-                                            title=""
-                                            loading={true}
-                                            skeletonType="bar"
-                                        >
-                                            <></>
-                                        </ChartCard>
-                                    ) : otherCharts.length > 0 ? (
-                                        <div className="row">
-                                            {otherCharts.map((chart, index) => (
-                                                <div className="col-12" key={chart.id || index}>
-                                                    <ChartCard
-                                                        title={chart.title}
-                                                        tooltip={chart.tooltip}
-                                                        icon={chart.icon}
-                                                        loading={loading}
-                                                        skeletonType={chart.type === "stackedbar" ? "bar" : chart.type}
-                                                    >
-                                                        <ChartRenderer chart={chart} />
-                                                    </ChartCard>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="alert alert-info">
-                                            <i className="bi bi-info-circle me-2"></i>
-                                            No additional charts available for this user
-                                        </div>
-                                    )}
-                                </>
-                            )}
+                    {/* ================= SECTION: USER ACTIVITY & MESSAGES ================= */}
+                    <div className="user-activity-section-layout mt-5">
+                        <div className="section-header-main mb-4">
+                            <i className="bi bi-person-badge-fill me-2 text-primary"></i>
+                            User Activity Analysis
                         </div>
+
+                        <div className="row">
+
+                            {/* LEFT COLUMN: Dropdown + Pie Chart */}
+                            <div className="col-md-6 mb-4 mb-md-0">
+                                <div className="card shadow-sm h-100">
+
+                                    <div className="card-body">
+                                        {/* User Dropdown */}
+                                        <div className="mb-4">
+                                            <label className="form-label fw-semibold text-muted small text-uppercase tracking-wider">
+                                                Select User
+                                            </label>
+
+                                            <select
+                                                className="form-select border-light-subtle shadow-sm"
+                                                value={selectedUser}
+                                                onChange={handleUserChange}
+                                                style={{ maxWidth: "100%" }}
+                                            >
+                                                {users.map((user) => (
+                                                    <option key={user} value={user}>
+                                                        👤 {user}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Pie Chart (always visible when user selected) */}
+                                        {selectedUser && (
+                                            <div className="user-stats-container">
+                                                {loading && otherCharts.length === 0 ? (
+                                                    <ChartCard
+                                                        title=""
+                                                        loading={true}
+                                                        skeletonType="bar"
+                                                    >
+                                                        <></>
+                                                    </ChartCard>
+                                                ) : otherCharts.length > 0 ? (
+                                                    <div className="row g-3">
+                                                        {otherCharts.map((chart, index) => (
+                                                            <div className="col-12" key={chart.id || index}>
+                                                                <ChartCard
+                                                                    title={chart.title}
+                                                                    tooltip={chart.tooltip}
+                                                                    icon={chart.icon}
+                                                                    loading={loading}
+                                                                    skeletonType={chart.type === "stackedbar" ? "bar" : chart.type}
+                                                                >
+                                                                    <div className="chart-wrapper-fixed">
+                                                                         <ChartRenderer chart={chart} />
+                                                                    </div>
+                                                                </ChartCard>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="alert alert-info border-0 bg-light">
+                                                        <i className="bi bi-info-circle me-2 text-primary"></i>
+                                                        No additional charts available for this user
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
 
                         {/* RIGHT COLUMN: Enhanced Messages Panel */}
                         <div className="col-md-6">
@@ -328,7 +337,7 @@ const LensFeedback: React.FC = () => {
                                     <div className="card-header bg-white d-flex justify-content-between align-items-center">
                                         <div>
                                             <strong>Messages</strong>
-                                            <div className="text-muted small">Click any message to view details</div>
+                                
                                         </div>
 
                                         {/* Filter Dropdown with counts */}
@@ -338,16 +347,16 @@ const LensFeedback: React.FC = () => {
                                             value={messageFilter}
                                             onChange={(e) => setMessageFilter(e.target.value)}
                                         >
-                                            <option value="all">All ({comments.length})</option>
-                                            <option value="like">👍 Liked ({likeCount})</option>
-                                            <option value="dislike">👎 Disliked ({dislikeCount})</option>
+                                            <option value="all">All</option>
+                                            <option value="like">👍 Liked </option>
+                                            <option value="dislike">👎 Disliked </option>
                                         </select>
                                     </div>
 
                                     {/* BODY with Messages List */}
                                     <div 
                                         className="card-body p-0 custom-scrollbar" 
-                                        style={{ maxHeight: "550px", overflowY: "auto" }}
+                                        style={{ maxHeight: "420px", overflowY: "auto" }}
                                     >
                                         {loading ? (
                                             <div className="text-center text-muted p-5">
@@ -386,13 +395,6 @@ const LensFeedback: React.FC = () => {
                                                     <div className="msg-content mb-2">
                                                         {comment.comment}
                                                     </div>
-
-                                                    <div className="d-flex align-items-center">
-                                                        <div className="bg-light px-2 py-1 rounded small text-muted border">
-                                                            <i className="bi bi-person-fill me-1"></i>
-                                                            {comment.user}
-                                                        </div>
-                                                    </div>
                                                 </div>
                                             ))
                                         )}
@@ -403,13 +405,14 @@ const LensFeedback: React.FC = () => {
                                         <div className="card-footer bg-white text-muted small border-top py-3">
                                             <div className="d-flex justify-content-between">
                                                 <span><i className="bi bi-list-check me-1"></i> Total: {comments.length}</span>
-                                                <span>Showing {filteredComments.length} messages</span>
+                                                
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             )}
                         </div>
+                    </div>
 
                     </div>
 
