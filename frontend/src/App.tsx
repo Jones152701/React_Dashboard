@@ -7,6 +7,7 @@ import SocialMedia from "./pages/social_media";
 import LenAnalytics from "./pages/LensAnalytics";
 import Competitors from "./pages/Competitors";
 import CompetitorDetail from "./pages/CompetitorDetail";
+import LensFeedback from "./pages/LensFeedback";
 import PrivateRoute from "./components/PrivateRoute";
 
 function App() {
@@ -32,6 +33,15 @@ function App() {
           element={
             <PrivateRoute>
               <LenAnalytics />
+            </PrivateRoute>
+          }
+        />
+
+        <Route
+          path="/LensAnalytics/Feedback"
+          element={
+            <PrivateRoute>
+              <LensFeedback />
             </PrivateRoute>
           }
         />

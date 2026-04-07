@@ -457,16 +457,312 @@ class LensAnalyticsView(APIView):
         })
 
 
-
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.db import connection
+from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 def run_query(query, params):
-    """Execute a SQL query in its own DB connection (thread-safe)."""
     from django.db import connections
     conn = connections['default']
     with conn.cursor() as cursor:
         cursor.execute(query, params)
         return cursor.fetchall()
+
+
+class LensFeedbackView(APIView):
+
+    def get(self, request):
+
+        table = "lens_src.prod_lens_feedback_table"
+
+        # ===================== FILTERS =====================
+        from_date = request.GET.get("from_date")
+        to_date = request.GET.get("to_date")
+        selected_user = request.GET.get("user")  # May be None initially
+
+        # Default: last 30 days
+        if not from_date or not to_date:
+            current_to = datetime.now()
+            current_from = current_to - timedelta(days=30)
+            from_date = current_from.strftime("%Y-%m-%d")
+            to_date = current_to.strftime("%Y-%m-%d")
+
+        print("\n===== Lens Feedback Request =====")
+        print(f"From: {from_date}, To: {to_date}")
+        print(f"Requested User: {selected_user if selected_user else 'None'}")
+        print("=================================\n")
+
+        try:
+
+            # ===================== QUERIES =====================
+
+            # 1️⃣ Total Feedback Breakdown
+            total_feedback_query = f"""
+                SELECT 
+                    COALESCE(LOWER(feedback_type), 'no_response') as feedback_type,
+                    COUNT(*) as count
+                FROM {table}
+                WHERE created_at >= %s AND created_at < %s
+                GROUP BY feedback_type
+            """
+
+            # 2️⃣ User Feedback Breakdown (Stacked)
+            user_feedback_query = f"""
+                SELECT 
+                    user_name,
+                    SUM(CASE WHEN LOWER(feedback_type) = 'like' THEN 1 ELSE 0 END) as like_count,
+                    SUM(CASE WHEN LOWER(feedback_type) = 'dislike' THEN 1 ELSE 0 END) as dislike_count
+                FROM {table}
+                WHERE created_at >= %s AND created_at < %s
+                GROUP BY user_name
+                ORDER BY user_name
+            """
+
+            # 3️⃣ Users list (dropdown) - MUST run first
+            users_query = f"""
+                SELECT DISTINCT user_name
+                FROM {table}
+                WHERE created_at >= %s 
+                AND created_at < %s
+                AND LOWER(feedback_type) IN ('like', 'dislike')
+                AND user_name IS NOT NULL
+                AND user_name != ''
+                ORDER BY user_name
+            """
+
+            # 4️⃣ Selected user breakdown (will be added after default user is set)
+            user_detail_query = f"""
+                SELECT 
+                    SUM(CASE WHEN LOWER(feedback_type) = 'like' THEN 1 ELSE 0 END) as like_count,
+                    SUM(CASE WHEN LOWER(feedback_type) = 'dislike' THEN 1 ELSE 0 END) as dislike_count
+                FROM {table}
+                WHERE created_at >= %s AND created_at < %s
+                AND user_name = %s
+            """
+
+            # 5️⃣ Feedback comments (will be added after default user is set)
+            comments_query = f"""
+                SELECT user_question, created_at, feedback_type
+                FROM {table}
+                WHERE created_at >= %s 
+                AND created_at < %s
+                AND user_name = %s
+                AND LOWER(feedback_type) IN ('like', 'dislike')
+                ORDER BY created_at DESC
+            """
+
+            # ===================== STEP 1: RUN BASE QUERIES FIRST =====================
+            base_queries = {
+                "total_feedback": (total_feedback_query, [from_date, to_date]),
+                "user_feedback": (user_feedback_query, [from_date, to_date]),
+                "users": (users_query, [from_date, to_date]),
+            }
+
+            base_results = {}
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                future_map = {
+                    executor.submit(run_query, q, p): name
+                    for name, (q, p) in base_queries.items()
+                }
+
+                for future in as_completed(future_map):
+                    name = future_map[future]
+                    try:
+                        base_results[name] = future.result()
+                    except Exception as e:
+                        print(f"❌ Base query failed ({name}): {e}")
+                        base_results[name] = []
+
+            # ===================== STEP 2: SET DEFAULT USER =====================
+            users = [row[0] for row in base_results.get("users", []) if row[0]]
+            
+            # ✅ Auto-select first user if no user provided
+            if not selected_user and users:
+                selected_user = users[0]
+                print(f"🎯 Auto-selected default user: {selected_user}")
+
+            # ===================== STEP 3: RUN USER-SPECIFIC QUERIES (if user exists) =====================
+            user_results = {}
+            if selected_user:
+                print(f"📊 Fetching data for user: {selected_user}")
+                
+                user_queries = {
+                    "user_detail": (user_detail_query, [from_date, to_date, selected_user]),
+                    "comments": (comments_query, [from_date, to_date, selected_user]),
+                }
+                
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    future_map = {
+                        executor.submit(run_query, q, p): name
+                        for name, (q, p) in user_queries.items()
+                    }
+
+                    for future in as_completed(future_map):
+                        name = future_map[future]
+                        try:
+                            user_results[name] = future.result()
+                        except Exception as e:
+                            print(f"❌ User query failed ({name}): {e}")
+                            user_results[name] = []
+
+            # ===================== STEP 4: TRANSFORM DATA =====================
+
+            # 🔹 Total Feedback
+            total_feedback_data = [
+                {
+                    "type": row[0] if row[0] else "no_response",
+                    "count": row[1]
+                }
+                for row in base_results.get("total_feedback", [])
+            ]
+
+            # Ensure all categories exist
+            feedback_map = {item["type"]: item["count"] for item in total_feedback_data}
+            for key in ["like", "dislike", "no_response"]:
+                if key not in feedback_map:
+                    total_feedback_data.append({"type": key, "count": 0})
+
+            # 🔹 User Feedback
+            user_feedback_data = [
+                {
+                    "user_name": row[0] if row[0] else "Unknown",
+                    "like": row[1] or 0,
+                    "dislike": row[2] or 0
+                }
+                for row in base_results.get("user_feedback", [])
+            ]
+
+            # Optional: limit users (top N)
+            user_feedback_data = sorted(
+                user_feedback_data,
+                key=lambda x: (x["like"] + x["dislike"]),
+                reverse=True
+            )[:15]
+
+            # 🔹 User detail chart (pie chart for selected user)
+            user_detail_chart = None
+            if selected_user and user_results.get("user_detail") and user_results["user_detail"]:
+                row = user_results["user_detail"][0]
+                
+                user_detail_chart = build_chart(
+                    chart_id="user_feedback_detail",
+                    chart_type="pie",
+                    data=[
+                        {"type": "like", "count": row[0] or 0},
+                        {"type": "dislike", "count": row[1] or 0},
+                    ],
+                    x_key="type",
+                    y_key="count",
+                    title=f"{selected_user} - Feedback Breakdown",
+                    tooltip="User feedback distribution",
+                    icon="bi-person",
+                    color={
+                        "like": "#10b95d",
+                        "dislike": "#f65656",
+                    },
+                    height=300,
+                    layout='horizontal',
+                    x_label="Feedback Type",
+                    y_label="Count"
+                )
+
+            # 🔹 Comments (for selected user) - ✅ FIXED: Added feedback_type mapping
+            comments = []
+            if selected_user and user_results.get("comments"):
+                comments = [
+                    {
+                        "comment": row[0] if row[0] else "No comment",
+                        "date": row[1].strftime("%Y-%m-%d %H:%M:%S") if row[1] else None,
+                        "type": (row[2] or "").lower(),  # ✅ CRITICAL FIX: Map feedback_type
+                        "date_raw": row[1]
+                    }
+                    for row in user_results["comments"]
+                ]
+
+            # ===================== STEP 5: BUILD CHARTS =====================
+
+            charts = []
+
+            # 1️⃣ Total Feedback Breakdown → BAR
+            if total_feedback_data:
+                charts.append(build_chart(
+                    chart_id="total_feedback_breakdown",
+                    chart_type="bar",
+                    data=total_feedback_data,
+                    x_key="type",
+                    y_key="count",
+                    title="Total Feedback Breakdown",
+                    tooltip="Distribution of feedback",
+                    icon="bi-bar-chart",
+                    color={
+                        "like": "#10b95d",
+                        "dislike": "#f65656",
+                        "no_response": "#9ca3af"
+                    },
+                    height=300,
+                    layout='horizontal',
+                    x_label="Feedback Type",
+                    y_label="Count"
+                ))
+
+            # 2️⃣ User Feedback Breakdown → STACKED BAR
+            if user_feedback_data:
+                charts.append(build_chart(
+                    chart_id="user_feedback_breakdown",
+                    chart_type="stackedbar",
+                    data=user_feedback_data,
+                    x_key="user_name",
+                    y_key="value",
+                    title="User Feedback Breakdown",
+                    tooltip="Like vs Dislike per user",
+                    icon="bi-people",
+                    layout="horizontal",
+                    series=[
+                        {"key": "like", "name": "Like", "color": "#10b95d"},
+                        {"key": "dislike", "name": "Dislike", "color": "#f65656"},
+                    ],
+                    height=300,
+                    x_label="Users",
+                    y_label="Count"
+                ))
+
+            # 3️⃣ Add user detail chart (always present since we auto-select user)
+            if user_detail_chart:
+                charts.append(user_detail_chart)
+
+            print("\n===== Lens Feedback Response =====")
+            print(f"Total Feedback Rows: {len(total_feedback_data)}")
+            print(f"User Feedback Rows: {len(user_feedback_data)}")
+            print(f"Users Available: {len(users)}")
+            print(f"Selected User: {selected_user if selected_user else 'None'}")
+            print(f"Comments Retrieved: {len(comments)}")
+            print(f"Comments with types: {[(c['type'], c['comment'][:30]) for c in comments[:3]]}")  # Debug log
+            print(f"Charts Built: {len(charts)}")
+            print("=================================\n")
+
+            # ===================== RESPONSE =====================
+            return Response({
+                "charts": charts,
+                "users": users,              # ✅ For dropdown
+                "comments": comments,        # ✅ For messages section (now includes type!)
+                "selected_user": selected_user  # ✅ Echo back to frontend
+            })
+
+        except Exception as e:
+            print(f"❌ ERROR in LensFeedbackView: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+            return Response(
+                {
+                    "error": "Failed to fetch lens feedback data",
+                    "detail": str(e)
+                },
+                status=500
+            )
 
 class SocialMediaDailyView(APIView):
 
@@ -1913,9 +2209,6 @@ class SocialMediaDailyView(APIView):
                 },
                 status=500
             )
-
-
-
 
 
 

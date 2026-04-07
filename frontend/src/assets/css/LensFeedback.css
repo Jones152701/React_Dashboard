@@ -1,0 +1,5 @@
+.pagewraps {
+  margin-top: 70px;
+  margin-left: 60px;
+  transition: margin-left 0.3s ease;
+}
