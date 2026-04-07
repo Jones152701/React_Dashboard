@@ -119,7 +119,7 @@ const LensFeedback: React.FC = () => {
                 setCharts(response.data?.charts || []);
                 setUsers(response.data?.users || []);
                 setComments(response.data?.comments || []);
-                
+
                 // ✅ Backend controls which user is selected
                 setSelectedUser(response.data?.selected_user || "");
 
@@ -158,14 +158,13 @@ const LensFeedback: React.FC = () => {
     );
 
     /* ================= MESSAGE FILTER LOGIC ================= */
-    
+
     const filteredComments = comments.filter((comment) => {
         if (messageFilter === "all") return true;
         return comment.type === messageFilter;
     });
 
-    const likeCount = comments.filter(c => c.type === "like").length;
-    const dislikeCount = comments.filter(c => c.type === "dislike").length;
+
 
     /* ================= HANDLERS ================= */
 
@@ -310,7 +309,7 @@ const LensFeedback: React.FC = () => {
                                                                     skeletonType={chart.type === "stackedbar" ? "bar" : chart.type}
                                                                 >
                                                                     <div className="chart-wrapper-fixed">
-                                                                         <ChartRenderer chart={chart} />
+                                                                        <ChartRenderer chart={chart} />
                                                                     </div>
                                                                 </ChartCard>
                                                             </div>
@@ -328,91 +327,91 @@ const LensFeedback: React.FC = () => {
                                 </div>
                             </div>
 
-                        {/* RIGHT COLUMN: Enhanced Messages Panel */}
-                        <div className="col-md-6">
-                            {selectedUser && (
-                                <div className="card shadow-sm h-100">
-                                    
-                                    {/* HEADER with Filter */}
-                                    <div className="card-header bg-white d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <strong>Messages</strong>
-                                
+                            {/* RIGHT COLUMN: Enhanced Messages Panel */}
+                            <div className="col-md-6">
+                                {selectedUser && (
+                                    <div className="card shadow-sm h-100">
+
+                                        {/* HEADER with Filter */}
+                                        <div className="card-header bg-white d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>Messages</strong>
+
+                                            </div>
+
+                                            {/* Filter Dropdown with counts */}
+                                            <select
+                                                className="form-select form-select-sm"
+                                                style={{ width: "160px" }}
+                                                value={messageFilter}
+                                                onChange={(e) => setMessageFilter(e.target.value)}
+                                            >
+                                                <option value="all">All</option>
+                                                <option value="like">👍 Liked </option>
+                                                <option value="dislike">👎 Disliked </option>
+                                            </select>
                                         </div>
 
-                                        {/* Filter Dropdown with counts */}
-                                        <select
-                                            className="form-select form-select-sm"
-                                            style={{ width: "160px" }}
-                                            value={messageFilter}
-                                            onChange={(e) => setMessageFilter(e.target.value)}
+                                        {/* BODY with Messages List */}
+                                        <div
+                                            className="card-body p-0 custom-scrollbar"
+                                            style={{ maxHeight: "420px", overflowY: "auto" }}
                                         >
-                                            <option value="all">All</option>
-                                            <option value="like">👍 Liked </option>
-                                            <option value="dislike">👎 Disliked </option>
-                                        </select>
-                                    </div>
-
-                                    {/* BODY with Messages List */}
-                                    <div 
-                                        className="card-body p-0 custom-scrollbar" 
-                                        style={{ maxHeight: "420px", overflowY: "auto" }}
-                                    >
-                                        {loading ? (
-                                            <div className="text-center text-muted p-5">
-                                                <div className="spinner-border text-primary me-2" role="status">
-                                                    <span className="visually-hidden">Loading...</span>
+                                            {loading ? (
+                                                <div className="text-center text-muted p-5">
+                                                    <div className="spinner-border text-primary me-2" role="status">
+                                                        <span className="visually-hidden">Loading...</span>
+                                                    </div>
+                                                    <div className="mt-2 text-primary fw-medium">Fetching feedback...</div>
                                                 </div>
-                                                <div className="mt-2 text-primary fw-medium">Fetching feedback...</div>
-                                            </div>
-                                        ) : filteredComments.length === 0 ? (
-                                            <div className="text-center text-muted p-5">
-                                                <div className="mb-3">
-                                                    <i className="bi bi-chat-square-text fs-1 opacity-25"></i>
+                                            ) : filteredComments.length === 0 ? (
+                                                <div className="text-center text-muted p-5">
+                                                    <div className="mb-3">
+                                                        <i className="bi bi-chat-square-text fs-1 opacity-25"></i>
+                                                    </div>
+                                                    <p className="mt-2 mb-0 fw-medium">No messages found for this user</p>
+                                                    <small>Try selecting a different user or date range</small>
                                                 </div>
-                                                <p className="mt-2 mb-0 fw-medium">No messages found for this user</p>
-                                                <small>Try selecting a different user or date range</small>
-                                            </div>
-                                        ) : (
-                                            filteredComments.map((comment, idx) => (
-                                                <div 
-                                                    key={idx} 
-                                                    className={`message-card ${selectedMessage === comment ? 'selected' : ''} ${comment.type === "like" ? "badge-like" : "badge-dislike"}`}
-                                                    style={{ '--item-index': idx } as React.CSSProperties}
-                                                    onClick={() => handleMessageClick(comment)}
-                                                >
-                                                    <div className="d-flex justify-content-between align-items-center mb-1">
-                                                        <div className="date-badge fw-bold">
-                                                            <i className="bi bi-clock-history"></i>
-                                                            {comment.date || "Just now"}
+                                            ) : (
+                                                filteredComments.map((comment, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className={`message-card ${selectedMessage === comment ? 'selected' : ''} ${comment.type === "like" ? "badge-like" : "badge-dislike"}`}
+                                                        style={{ '--item-index': idx } as React.CSSProperties}
+                                                        onClick={() => handleMessageClick(comment)}
+                                                    >
+                                                        <div className="d-flex justify-content-between align-items-center mb-1">
+                                                            <div className="date-badge fw-bold">
+                                                                <i className="bi bi-clock-history"></i>
+                                                                {comment.date || "Just now"}
+                                                            </div>
+                                                            <span className={`msg-type-badge ${comment.type === "like" ? "badge-like" : "badge-dislike"}`}>
+                                                                {comment.type === "like" ? <i className="bi bi-hand-thumbs-up-fill me-1"></i> : <i className="bi bi-hand-thumbs-down-fill me-1"></i>}
+                                                                {comment.type === "like" ? "Liked" : "Disliked"}
+                                                            </span>
                                                         </div>
-                                                        <span className={`msg-type-badge ${comment.type === "like" ? "badge-like" : "badge-dislike"}`}>
-                                                            {comment.type === "like" ? <i className="bi bi-hand-thumbs-up-fill me-1"></i> : <i className="bi bi-hand-thumbs-down-fill me-1"></i>}
-                                                            {comment.type === "like" ? "Liked" : "Disliked"}
-                                                        </span>
-                                                    </div>
 
-                                                    <div className="msg-content mb-2">
-                                                        {comment.comment}
+                                                        <div className="msg-content mb-2">
+                                                            {comment.comment}
+                                                        </div>
                                                     </div>
+                                                ))
+                                            )}
+                                        </div>
+
+                                        {/* Footer with count */}
+                                        {!loading && filteredComments.length > 0 && (
+                                            <div className="card-footer bg-white text-muted small border-top py-3">
+                                                <div className="d-flex justify-content-between">
+                                                    <span><i className="bi bi-list-check me-1"></i> Total: {comments.length}</span>
+
                                                 </div>
-                                            ))
+                                            </div>
                                         )}
                                     </div>
-
-                                    {/* Footer with count */}
-                                    {!loading && filteredComments.length > 0 && (
-                                        <div className="card-footer bg-white text-muted small border-top py-3">
-                                            <div className="d-flex justify-content-between">
-                                                <span><i className="bi bi-list-check me-1"></i> Total: {comments.length}</span>
-                                                
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    </div>
 
                     </div>
 
@@ -436,7 +435,7 @@ const LensFeedback: React.FC = () => {
                 <>
                     {/* Modal Backdrop */}
                     <div className="modal-backdrop fade show"></div>
-                    
+
                     {/* Modal */}
                     <div className="modal fade show d-block lens-modal" tabIndex={-1}>
                         <div className="modal-dialog modal-lg modal-dialog-centered">
@@ -450,16 +449,16 @@ const LensFeedback: React.FC = () => {
                                         </span>
                                         Feedback Analysis
                                     </h5>
-                                    <button 
-                                        type="button" 
-                                        className="btn-close shadow-none" 
+                                    <button
+                                        type="button"
+                                        className="btn-close shadow-none"
                                         onClick={handleCloseModal}
                                     ></button>
                                 </div>
 
                                 {/* BODY */}
                                 <div className="modal-body custom-scrollbar" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-                                    
+
                                     <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
                                         <div className="d-flex gap-4">
                                             <div>
@@ -471,9 +470,6 @@ const LensFeedback: React.FC = () => {
                                                 <div className="fw-bold text-dark">{selectedMessage.date}</div>
                                             </div>
                                         </div>
-                                        <span className={`badge fs-6 px-3 py-2 rounded-pill ${selectedMessage.type === "like" ? "badge-like" : "badge-dislike"}`}>
-                                            {selectedMessage.type === "like" ? "👍 Great Experience" : "👎 Issues Reported"}
-                                        </span>
                                     </div>
 
                                     <div className="conversation-box">
@@ -490,11 +486,11 @@ const LensFeedback: React.FC = () => {
                                         {/* BOT RESPONSE - ✅ WITH HTML RENDERING */}
                                         <div className="chat-bubble bubble-bot">
                                             <div className="bubble-label text-primary">
-                                                <i className="bi bi-robot"></i> Assistant Response
+                                                <i className="bi bi-robot"></i> Bot Response
                                             </div>
-                                            <div 
+                                            <div
                                                 className="markdown-content"
-                                                style={{ 
+                                                style={{
                                                     whiteSpace: "normal",
                                                     wordWrap: "break-word"
                                                 }}
@@ -521,9 +517,9 @@ const LensFeedback: React.FC = () => {
 
                                 {/* FOOTER */}
                                 <div className="modal-footer border-0 p-3">
-                                    <button 
-                                        type="button" 
-                                        className="btn btn-light px-4 fw-semibold" 
+                                    <button
+                                        type="button"
+                                        className="btn btn-light px-4 fw-semibold"
                                         onClick={handleCloseModal}
                                     >
                                         Dismiss
